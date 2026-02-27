@@ -24,6 +24,18 @@ export const orderService = {
     const response = await api.patch(`/user/order/${id}/retry-assign`);
     return response.data;
   },
+  getPaypalClientConfig: async () => {
+    const response = await api.get("/user/order/paypal/client-id");
+    return response.data;
+  },
+  createPaypalOrder: async (data) => {
+    const response = await api.post("/user/order/paypal/create", data);
+    return response.data;
+  },
+  capturePaypalOrder: async (data) => {
+    const response = await api.post("/user/order/paypal/capture", data);
+    return response.data;
+  },
   submitReview: async (data) => {
     const response = await api.post("/user/review/create", data);
     return response.data;

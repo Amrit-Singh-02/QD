@@ -90,6 +90,54 @@ const shippingAddressSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const paymentDetailsSchema = new mongoose.Schema(
+  {
+    provider: {
+      type: String,
+      enum: ["paypal"],
+    },
+    orderId: {
+      type: String,
+      trim: true,
+    },
+    captureId: {
+      type: String,
+      trim: true,
+    },
+    payerId: {
+      type: String,
+      trim: true,
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
+    status: {
+      type: String,
+      trim: true,
+    },
+    amountOriginal: {
+      type: Number,
+    },
+    currencyOriginal: {
+      type: String,
+      trim: true,
+    },
+    amountCharged: {
+      type: Number,
+    },
+    currencyCharged: {
+      type: String,
+      trim: true,
+    },
+    exchangeRate: {
+      type: Number,
+    },
+  },
+  { _id: false },
+);
+
 const orderSchema = new mongoose.Schema(
   {
     user: {
@@ -107,13 +155,17 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["cod", "card", "upi", "wallet"],
+      enum: ["cod", "card", "upi", "wallet", "paypal"],
       default: "cod",
     },
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "successful", "failed", "refunded"],
       default: "pending",
+    },
+    paymentDetails: {
+      type: paymentDetailsSchema,
+      default: null,
     },
     orderStatus: {
       type: String,

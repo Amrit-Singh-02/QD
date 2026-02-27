@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,30 @@ import { orderService } from '../services/orderService';
 import toast from 'react-hot-toast';
 import { useLocationContext } from '../context/LocationContext';
 
+const loadPayPalSdk = (clientId, currency) => {
+    return new Promise((resolve, reject) => {
+        if (window.paypal) {
+            resolve(window.paypal);
+            return;
+        }
+
+        const existing = document.getElementById('paypal-sdk');
+        if (existing) {
+            existing.addEventListener('load', () => resolve(window.paypal));
+            existing.addEventListener('error', reject);
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.id = 'paypal-sdk';
+        script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${currency}`;
+        script.async = true;
+        script.onload = () => resolve(window.paypal);
+        script.onerror = () => reject(new Error('Failed to load PayPal SDK'));
+        document.body.appendChild(script);
+    });
+};
+
 const Cart = () => {
     const { cart, updateQuantity, removeFromCart, fetchCart } = useCart();
     const { isAuthenticated } = useAuth();
@@ -19,8 +43,17 @@ const Cart = () => {
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('cod');
     const [loading, setLoading] = useState(false);
+    const [paypalLoading, setPaypalLoading] = useState(false);
+    const [paypalReady, setPaypalReady] = useState(false);
+    const [paypalError, setPaypalError] = useState('');
+    const [paypalProcessing, setPaypalProcessing] = useState(false);
+    const [paypalClientId, setPaypalClientId] = useState('');
+    const [paypalCurrency, setPaypalCurrency] = useState('INR');
     const [showLocationModal, setShowLocationModal] = useState(false);
     const navigate = useNavigate();
+    const paypalButtonRef = useRef(null);
+    const paypalButtonsInstanceRef = useRef(null);
+    const paypalOrderRef = useRef(null);
 
     useEffect(() => {
         fetchCart();
@@ -58,7 +91,179 @@ const Cart = () => {
         setTotal(newTotal);
     }, [cart]);
 
+    const canCheckout = isAuthenticated && selectedAddress && location?.label;
+
+    useEffect(() => {
+        if (paymentMethod !== 'paypal') {
+            setPaypalReady(false);
+            setPaypalError('');
+            setPaypalProcessing(false);
+            if (paypalButtonsInstanceRef.current) {
+                paypalButtonsInstanceRef.current.close();
+                paypalButtonsInstanceRef.current = null;
+            }
+            if (paypalButtonRef.current) {
+                paypalButtonRef.current.innerHTML = '';
+            }
+            return;
+        }
+
+        let cancelled = false;
+
+        const setupPayPal = async () => {
+            if (!isAuthenticated) {
+                setPaypalLoading(false);
+                setPaypalReady(false);
+                setPaypalError('');
+                return;
+            }
+            setPaypalLoading(true);
+            setPaypalError('');
+            try {
+                let clientId = paypalClientId;
+                let currency = paypalCurrency;
+
+                if (!clientId) {
+                    const response = await orderService.getPaypalClientConfig();
+                    clientId = response?.payload?.clientId;
+                    currency = response?.payload?.currency || 'INR';
+                    if (!clientId) {
+                        throw new Error('PayPal client id not configured');
+                    }
+                    if (!cancelled) {
+                        setPaypalClientId(clientId);
+                        setPaypalCurrency(currency);
+                    }
+                }
+
+                await loadPayPalSdk(clientId, currency);
+                if (!cancelled) {
+                    setPaypalReady(true);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setPaypalReady(false);
+                    setPaypalError(
+                        error?.response?.data?.message || error?.message || 'Failed to load PayPal',
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setPaypalLoading(false);
+                }
+            }
+        };
+
+        setupPayPal();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [paymentMethod, paypalClientId, paypalCurrency, isAuthenticated]);
+
+    useEffect(() => {
+        if (paymentMethod !== 'paypal') return;
+        if (!paypalReady || !window.paypal || !paypalButtonRef.current) return;
+
+        if (paypalButtonsInstanceRef.current) {
+            paypalButtonsInstanceRef.current.close();
+            paypalButtonsInstanceRef.current = null;
+        }
+
+        paypalButtonRef.current.innerHTML = '';
+
+        const buttons = window.paypal.Buttons({
+            style: {
+                layout: 'vertical',
+                shape: 'rect',
+                label: 'paypal',
+            },
+            createOrder: async (data, actions) => {
+                if (!canCheckout) {
+                    toast.error('Please select address and detect location first.');
+                    return actions.reject();
+                }
+
+                try {
+                    setPaypalProcessing(true);
+                    const response = await orderService.createPaypalOrder({
+                        addressId: selectedAddress,
+                        locationCoords: location?.coords,
+                    });
+                    const payload = response?.payload;
+                    if (!payload?.paypalOrderId || !payload?.orderId) {
+                        throw new Error('Failed to create PayPal order');
+                    }
+                    paypalOrderRef.current = {
+                        orderId: payload.orderId,
+                        paypalOrderId: payload.paypalOrderId,
+                    };
+                    return payload.paypalOrderId;
+                } catch (error) {
+                    toast.error(error.response?.data?.message || 'Failed to create PayPal order');
+                    return actions.reject();
+                } finally {
+                    setPaypalProcessing(false);
+                }
+            },
+            onApprove: async (data) => {
+                try {
+                    setPaypalProcessing(true);
+                    const localOrderId = paypalOrderRef.current?.orderId;
+                    const response = await orderService.capturePaypalOrder({
+                        orderId: localOrderId,
+                        paypalOrderId: data.orderID,
+                    });
+                    const payload = response?.payload;
+                    const order = payload?.order || payload;
+                    const resolvedOrderId = order?.id || order?._id || localOrderId;
+                    await fetchCart();
+                    if (resolvedOrderId) {
+                        navigate(`/order-success?orderId=${resolvedOrderId}`, {
+                            state: { order },
+                        });
+                    } else {
+                        navigate('/order-success');
+                    }
+                } catch (error) {
+                    toast.error(error.response?.data?.message || 'Payment capture failed');
+                } finally {
+                    setPaypalProcessing(false);
+                }
+            },
+            onCancel: () => {
+                setPaypalProcessing(false);
+                toast.error('PayPal payment cancelled');
+            },
+            onError: (err) => {
+                setPaypalProcessing(false);
+                const message =
+                    err?.message ||
+                    err?.details?.[0]?.description ||
+                    'PayPal payment failed';
+                toast.error(message);
+            },
+        });
+
+        if (buttons.isEligible()) {
+            buttons.render(paypalButtonRef.current);
+            paypalButtonsInstanceRef.current = buttons;
+        } else {
+            setPaypalError('PayPal is not available in this browser.');
+        }
+
+        return () => {
+            if (paypalButtonsInstanceRef.current) {
+                paypalButtonsInstanceRef.current.close();
+                paypalButtonsInstanceRef.current = null;
+            }
+        };
+    }, [paymentMethod, paypalReady, canCheckout, selectedAddress, location, fetchCart, navigate]);
+
     const handlePlaceOrder = async () => {
+        if (paymentMethod === 'paypal') {
+            return;
+        }
         if (!isAuthenticated) {
             navigate('/login', { state: { from: '/cart' } });
             return;
@@ -251,7 +456,7 @@ const Cart = () => {
                             <div>
                                 <h2 className="font-bold text-lg mb-3">Payment Method</h2>
                                 <div className="space-y-2">
-                                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${paymentMethod === 'COD' ? 'border-blinkit-green bg-green-50' : 'border-blinkit-border'}`}>
+                                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${paymentMethod === 'cod' ? 'border-blinkit-green bg-green-50' : 'border-blinkit-border'}`}>
                                         <input
                                             type="radio"
                                             name="payment"
@@ -262,14 +467,45 @@ const Cart = () => {
                                         />
                                         <span className="font-medium text-sm">Cash on Delivery</span>
                                     </label>
-                                    {/* Placeholder for Online Payment - Disabled for now */}
-                                    <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed">
-                                        <input type="radio" name="payment" value="ONLINE" disabled className="w-4 h-4" />
+                                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${paymentMethod === 'paypal' ? 'border-blinkit-green bg-green-50' : 'border-blinkit-border'}`}>
+                                        <input
+                                            type="radio"
+                                            name="payment"
+                                            value="paypal"
+                                            checked={paymentMethod === 'paypal'}
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                            className="w-4 h-4 text-blinkit-green focus:ring-blinkit-green"
+                                        />
                                         <div>
-                                            <span className="font-medium text-sm block">Online Payment</span>
-                                            <span className="text-[10px] text-gray-500">Coming Soon</span>
+                                            <span className="font-medium text-sm block">PayPal</span>
+                                            <span className="text-[10px] text-gray-500">Pay securely with PayPal</span>
                                         </div>
                                     </label>
+                                    {paymentMethod === 'paypal' && (
+                                        <div className="border border-blinkit-border rounded-lg p-3 bg-gray-50">
+                                            {!isAuthenticated && (
+                                                <p className="text-xs text-red-500 font-medium">
+                                                    Please login to pay with PayPal.
+                                                </p>
+                                            )}
+                                            {paypalLoading && (
+                                                <div className="flex items-center gap-2 text-xs text-blinkit-gray">
+                                                    <div className="w-4 h-4 border-2 border-blinkit-green border-t-transparent rounded-full animate-spin"></div>
+                                                    Loading PayPal...
+                                                </div>
+                                            )}
+                                            {paypalError && (
+                                                <p className="text-xs text-red-500 font-medium">{paypalError}</p>
+                                            )}
+                                            {paypalProcessing && (
+                                                <div className="flex items-center gap-2 text-xs text-blinkit-gray">
+                                                    <div className="w-4 h-4 border-2 border-blinkit-green border-t-transparent rounded-full animate-spin"></div>
+                                                    Processing payment...
+                                                </div>
+                                            )}
+                                            <div ref={paypalButtonRef} className="mt-3"></div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -295,25 +531,29 @@ const Cart = () => {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={handlePlaceOrder}
-                                disabled={loading || (isAuthenticated && (!selectedAddress || !location?.label))}
-                                className={`w-full py-4 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2
-                                    ${loading || (isAuthenticated && (!selectedAddress || !location?.label)) ? 'bg-gray-400 cursor-not-allowed' : 'bg-blinkit-green hover:bg-blinkit-green-dark hover:shadow-xl hover:-translate-y-0.5'}`}
-                            >
-                                {loading ? (
-                                    <>
-                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                        <span>Placing Order...</span>
-                                    </>
-                                ) : (
-                                    <span>Place Order</span>
-                                )}
-                            </button>
-                            {isAuthenticated && (!selectedAddress || !location?.label) && (
-                                <p className="text-xs text-red-500 text-center font-medium">
-                                    {!selectedAddress ? 'Please select a delivery address' : 'Please detect your delivery location'}
-                                </p>
+                            {paymentMethod === 'cod' && (
+                                <>
+                                    <button
+                                        onClick={handlePlaceOrder}
+                                        disabled={loading || (isAuthenticated && (!selectedAddress || !location?.label))}
+                                        className={`w-full py-4 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2
+                                            ${loading || (isAuthenticated && (!selectedAddress || !location?.label)) ? 'bg-gray-400 cursor-not-allowed' : 'bg-blinkit-green hover:bg-blinkit-green-dark hover:shadow-xl hover:-translate-y-0.5'}`}
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                <span>Placing Order...</span>
+                                            </>
+                                        ) : (
+                                            <span>Place Order</span>
+                                        )}
+                                    </button>
+                                    {isAuthenticated && (!selectedAddress || !location?.label) && (
+                                        <p className="text-xs text-red-500 text-center font-medium">
+                                            {!selectedAddress ? 'Please select a delivery address' : 'Please detect your delivery location'}
+                                        </p>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>

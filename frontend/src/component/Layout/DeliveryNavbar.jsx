@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import ThemeToggle from "../UI/ThemeToggle";
 
 const DeliveryNavbar = ({ agent, onLogout }) => {
   const initials = agent?.name
@@ -38,6 +39,7 @@ const DeliveryNavbar = ({ agent, onLogout }) => {
         </Link>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle className="shrink-0" />
           {agent ? (
             <>
               <div className="hidden sm:block text-right">

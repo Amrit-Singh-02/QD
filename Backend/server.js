@@ -16,7 +16,7 @@ import {
 import DeliveryAgentModel from "./src/models/deliveryAgent.model.js";
 import OrderModel from "./src/models/order.model.js";
 import { ORDER_STATUSES } from "./src/utils/orderStatus.util.js";
-import { connectRedis } from "./src/config/redis.config.js";
+import { client } from "./src/config/redis.config.js";
 import {
   getActiveAgentSocket,
   getActiveUserSocket,
@@ -72,10 +72,13 @@ const shouldEmit = (cache, key, throttleMs) => {
 
 let redis = null;
 try {
-  redis = await connectRedis();
+  redis = await client();
   app.set("redis", redis);
 } catch (err) {
-  console.error("Redis connection failed. Falling back to in-memory stores.");
+  console.error(
+    "Redis connection failed. Falling back to in-memory stores.",
+    err,
+  );
 }
 
 const startOrderTimerPoller = (appRef) => {

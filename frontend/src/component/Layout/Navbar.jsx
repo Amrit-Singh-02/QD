@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLocationContext } from '../../context/LocationContext';
 import LocationModal from '../Location/LocationModal';
 import { getAllProducts } from '../../services/productService';
+import ThemeToggle from '../UI/ThemeToggle';
 
 const Navbar = () => {
   const { loading, user, isAuthenticated, logout } = useAuth();
@@ -77,7 +78,7 @@ const Navbar = () => {
     }
   };
 
-  const cartCount = cart?.reduce((total, item) => total + item.quantity, 0) || 0;
+  const cartCount = cart?.length || 0;
   const locationLabel = location?.label?.trim();
   const locationTitle = locationLabel ? 'Deliver to' : 'Detect My Location';
   const locationSubtitle = locationLabel || (isTracking ? 'Live GPS active' : 'Use GPS or search address');
@@ -226,6 +227,7 @@ const Navbar = () => {
 
           {/* Auth / User section */}
           <div className="flex items-center gap-2 shrink-0">
+            <ThemeToggle className="shrink-0" />
             {isAuthenticated && user ? (
               /* Logged in — show avatar + dropdown */
               <div className="relative" ref={dropdownRef}>

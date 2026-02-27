@@ -383,6 +383,7 @@ const Home = () => {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {products.map((product) => {
+                    const id = product?.id || product?._id;
                     const discount = getDiscount(product);
                     const imageUrl =
                       product?.images && product.images.length > 0
@@ -391,8 +392,8 @@ const Home = () => {
 
                     return (
                       <Link
-                        to={`/product/${product.id}`}
-                        key={product.id}
+                        to={`/product/${id}`}
+                        key={id}
                         state={{
                           from: `${location.pathname}${location.search}${location.hash}`,
                         }}

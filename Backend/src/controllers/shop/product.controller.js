@@ -1,4 +1,5 @@
 import expressAsyncHandler from "express-async-handler";
+import mongoose from "mongoose";
 import ProductModel from "../../models/product.model.js";
 import ApiResponse from "../../utils/ApiResponse.util.js";
 import CustomError from "../../utils/customError.util.js";
@@ -21,6 +22,16 @@ const buildKeywordFilter = (keywords = []) => {
   });
   if (!keywordOr.length) return null;
   return { $or: keywordOr };
+};
+
+const withId = (product) => {
+  if (!product) return product;
+  const id = product.id || product._id;
+  return {
+    ...product,
+    id,
+    _id: product._id || product.id,
+  };
 };
 
 export const fetchProducts = expressAsyncHandler(async (req, res) => {
@@ -71,12 +82,13 @@ export const fetchProducts = expressAsyncHandler(async (req, res) => {
     sortOption = { discount: -1 };
   }
 
-  const products = await ProductModel.find(filter)
+  let products = await ProductModel.find(filter)
     .sort(sortOption)
     .skip(skip)
     .limit(limit)
     .select("-__v")
     .lean({ virtuals: true });
+  products = products.map(withId);
 
   const meta = {
     page: currentPage,
@@ -94,18 +106,24 @@ export const fetchProducts = expressAsyncHandler(async (req, res) => {
 
 export const fetchProduct = expressAsyncHandler(async (req, res, next) => {
   const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return next(new CustomError(400, "Invalid MongoDB ID"));
+  }
+
   const product = await ProductModel.findById(id)
     .select("-__v")
     .lean({ virtuals: true });
   if (!product) next(new CustomError(404, "Product Not Found"));
-  new ApiResponse(200, "Product Fetched Successfully", product).send(res);
+  new ApiResponse(200, "Product Fetched Successfully", withId(product)).send(
+    res,
+  );
 });
 
 export const searchProducts = expressAsyncHandler(async (req, res, next) => {
   const { keyword } = req.query;
   const searchRegex = new RegExp(keyword, "i");
 
-  const products = await ProductModel.find({
+  let products = await ProductModel.find({
     $or: [
       { name: { $regex: searchRegex } },
       { description: { $regex: searchRegex } },
@@ -115,6 +133,7 @@ export const searchProducts = expressAsyncHandler(async (req, res, next) => {
   })
     .select("-__v")
     .lean({ virtuals: true });
+  products = products.map(withId);
 
   if (!products.length) {
     return next(new CustomError(404, "No products found"));

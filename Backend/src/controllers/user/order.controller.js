@@ -12,6 +12,14 @@ import {
   releaseAgentLock,
 } from "../../services/orderAssignment.service.js";
 import {
+  capturePayPalOrder,
+  createPayPalOrder,
+  getPayPalClientId,
+  getPayPalCurrency,
+  getPayPalUsdRate,
+  convertInrToUsd,
+} from "../../services/paypal.service.js";
+import {
   assertValidTransition,
   ORDER_STATUSES,
 } from "../../utils/orderStatus.util.js";
@@ -53,6 +61,70 @@ const buildShippingAddress = (address, fallbackCoords = null) => {
   };
 };
 
+const normalizePaymentMethod = (value) =>
+  String(value || "cod").trim().toLowerCase();
+
+const buildOrderDraftFromCart = async ({
+  userId,
+  addressId,
+  locationCoords,
+}) => {
+  if (!addressId) {
+    throw new CustomError(400, "Address id is required");
+  }
+
+  const address = await AddressModel.findOne({ _id: addressId, user: userId });
+  if (!address) {
+    throw new CustomError(404, "Address not found");
+  }
+
+  const cartItems = await CartModel.find({ userId }).populate("productId");
+  if (!cartItems || cartItems.length === 0) {
+    throw new CustomError(404, "Cart is empty");
+  }
+
+  const items = [];
+  let subtotal = 0;
+  let totalQuantity = 0;
+
+  for (const cartItem of cartItems) {
+    const product = cartItem.productId;
+    if (!product) {
+      throw new CustomError(404, "Product not found");
+    }
+
+    const quantity = cartItem.quantity;
+    if (product.stocks < quantity) {
+      throw new CustomError(
+        400,
+        `Insufficient stock for ${product.name}`,
+      );
+    }
+
+    const price = product.price;
+    const lineSubtotal = price * quantity;
+
+    items.push({
+      product: product._id,
+      name: product.name,
+      price,
+      quantity,
+      subtotal: lineSubtotal,
+    });
+
+    subtotal += lineSubtotal;
+    totalQuantity += quantity;
+  }
+
+  return {
+    items,
+    shippingAddress: buildShippingAddress(address, locationCoords),
+    subtotal,
+    totalQuantity,
+    totalAmount: subtotal,
+  };
+};
+
 
 export const createOrderFromCart = expressAsyncHandler(
   async (req, res, next) => {
@@ -60,57 +132,32 @@ export const createOrderFromCart = expressAsyncHandler(
     if (!userId) return next(new CustomError(401, "Unauthorized"));
 
     const { addressId, paymentMethod, notes, locationCoords } = req.body;
-    if (!addressId) {
-      return next(new CustomError(400, "Address id is required"));
+    const normalizedPayment = normalizePaymentMethod(paymentMethod);
+    if (normalizedPayment !== "cod") {
+      return next(
+        new CustomError(
+          400,
+          "Online payments are handled via PayPal checkout.",
+        ),
+      );
     }
 
-    const address = await AddressModel.findOne({ _id: addressId, user: userId });
-    if (!address) return next(new CustomError(404, "Address not found"));
-
-    const cartItems = await CartModel.find({ userId }).populate("productId");
-    if (!cartItems || cartItems.length === 0) {
-      return next(new CustomError(404, "Cart is empty"));
-    }
-
-    const items = [];
-    let subtotal = 0;
-    let totalQuantity = 0;
-
-    for (const cartItem of cartItems) {
-      const product = cartItem.productId;
-      if (!product) return next(new CustomError(404, "Product not found"));
-
-      const quantity = cartItem.quantity;
-      if (product.stocks < quantity) {
-        return next(
-          new CustomError(400, `Insufficient stock for ${product.name}`),
-        );
-      }
-
-      const price = product.price;
-      const lineSubtotal = price * quantity;
-
-      items.push({
-        product: product._id,
-        name: product.name,
-        price,
-        quantity,
-        subtotal: lineSubtotal,
+    const { items, shippingAddress, subtotal, totalQuantity, totalAmount } =
+      await buildOrderDraftFromCart({
+        userId,
+        addressId,
+        locationCoords,
       });
-
-      subtotal += lineSubtotal;
-      totalQuantity += quantity;
-    }
 
     const order = await OrderModel.create({
       user: userId,
       items,
-      shippingAddress: buildShippingAddress(address, locationCoords),
-      paymentMethod,
+      shippingAddress,
+      paymentMethod: normalizedPayment,
       notes,
       subtotal,
       totalQuantity,
-      totalAmount: subtotal,
+      totalAmount,
     });
 
     if (!order) return next(new CustomError(400, "Order creation failed"));
@@ -306,3 +353,212 @@ export const retryAssignOrder = expressAsyncHandler(async (req, res, next) => {
 
   new ApiResponse(200, "Reassigning delivery agent", order).send(res);
 });
+
+export const getPaypalClientConfig = expressAsyncHandler(
+  async (req, res) => {
+    const clientId = getPayPalClientId();
+    const currency = getPayPalCurrency();
+    new ApiResponse(200, "Fetched PayPal client config", {
+      clientId,
+      currency,
+    }).send(res);
+  },
+);
+
+export const createPaypalOrderFromCart = expressAsyncHandler(
+  async (req, res, next) => {
+    const userId = req.myUser?.id;
+    if (!userId) return next(new CustomError(401, "Unauthorized"));
+
+    const { addressId, notes, locationCoords } = req.body;
+
+    const { items, shippingAddress, subtotal, totalQuantity, totalAmount } =
+      await buildOrderDraftFromCart({
+        userId,
+        addressId,
+        locationCoords,
+      });
+
+    const order = await OrderModel.create({
+      user: userId,
+      items,
+      shippingAddress,
+      paymentMethod: "paypal",
+      paymentStatus: "pending",
+      paymentDetails: {
+        provider: "paypal",
+      },
+      notes,
+      subtotal,
+      totalQuantity,
+      totalAmount,
+    });
+
+    if (!order) return next(new CustomError(400, "Order creation failed"));
+
+    try {
+      const currency = getPayPalCurrency();
+      const usdRate = getPayPalUsdRate();
+      const amountCharged =
+        currency === "USD"
+          ? convertInrToUsd(totalAmount, usdRate)
+          : Number(totalAmount);
+      const paypalOrder = await createPayPalOrder({
+        amount: amountCharged,
+        currency,
+        referenceId: order._id.toString(),
+      });
+
+      order.paymentDetails = {
+        ...(order.paymentDetails || {}),
+        orderId: paypalOrder.id,
+        status: paypalOrder.status,
+        amountOriginal: totalAmount,
+        currencyOriginal: "INR",
+        amountCharged,
+        currencyCharged: currency,
+        exchangeRate: currency === "USD" ? usdRate : null,
+        provider: "paypal",
+      };
+      await order.save();
+
+      new ApiResponse(201, "PayPal order created", {
+        orderId: order._id,
+        paypalOrderId: paypalOrder.id,
+      }).send(res);
+    } catch (error) {
+      await OrderModel.findByIdAndDelete(order._id);
+      throw error;
+    }
+  },
+);
+
+export const capturePaypalOrderPayment = expressAsyncHandler(
+  async (req, res, next) => {
+    const userId = req.myUser?.id;
+    if (!userId) return next(new CustomError(401, "Unauthorized"));
+
+    const { orderId, paypalOrderId } = req.body;
+    if (!orderId || !paypalOrderId) {
+      return next(
+        new CustomError(400, "Order id and PayPal order id are required"),
+      );
+    }
+
+    const order = await OrderModel.findOne({ _id: orderId, user: userId });
+    if (!order) return next(new CustomError(404, "Order not found"));
+
+    if (order.paymentMethod !== "paypal") {
+      return next(new CustomError(400, "Order is not a PayPal payment"));
+    }
+
+    if (
+      [ORDER_STATUSES.CANCELLED, ORDER_STATUSES.DELIVERED].includes(
+        order.orderStatus,
+      )
+    ) {
+      return next(new CustomError(400, "Order cannot be paid at this stage"));
+    }
+
+    const normalizedPaymentStatus = String(order.paymentStatus || "").toLowerCase();
+    if (["successful", "paid"].includes(normalizedPaymentStatus)) {
+      return new ApiResponse(200, "Payment already captured", order).send(res);
+    }
+
+    if (
+      order.paymentDetails?.orderId &&
+      order.paymentDetails.orderId !== paypalOrderId
+    ) {
+      return next(new CustomError(400, "PayPal order id mismatch"));
+    }
+
+    const capture = await capturePayPalOrder(paypalOrderId);
+    const purchaseUnit = capture?.purchase_units?.[0];
+    const amountValue = purchaseUnit?.amount?.value;
+    const currencyCode = purchaseUnit?.amount?.currency_code;
+    const referenceId = purchaseUnit?.reference_id;
+    const captureStatus = capture?.status;
+    const captureId =
+      purchaseUnit?.payments?.captures?.[0]?.id ||
+      capture?.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+    const payerId = capture?.payer?.payer_id;
+    const payerEmail = capture?.payer?.email_address;
+
+    const expectedAmount = Number(order.totalAmount).toFixed(2);
+    const receivedAmount = Number(amountValue).toFixed(2);
+    const expectedCurrency =
+      order.paymentDetails?.currencyCharged || getPayPalCurrency();
+    const expectedCharged =
+      typeof order.paymentDetails?.amountCharged === "number"
+        ? Number(order.paymentDetails.amountCharged).toFixed(2)
+        : null;
+    let expectedValue = expectedCharged ?? expectedAmount;
+    if (!expectedCharged && expectedCurrency === "USD") {
+      const usdRate = getPayPalUsdRate();
+      expectedValue = Number(convertInrToUsd(order.totalAmount, usdRate)).toFixed(2);
+    }
+
+    if (!Number.isFinite(Number(amountValue))) {
+      return next(new CustomError(400, "Invalid PayPal capture amount"));
+    }
+
+    if (currencyCode && currencyCode !== expectedCurrency) {
+      return next(
+        new CustomError(
+          400,
+          `PayPal currency mismatch (expected ${expectedCurrency}, got ${currencyCode})`,
+        ),
+      );
+    }
+
+    if (referenceId && String(referenceId) !== String(order._id)) {
+      return next(new CustomError(400, "PayPal reference id mismatch"));
+    }
+
+    if (receivedAmount !== expectedValue) {
+      return next(
+        new CustomError(
+          400,
+          `PayPal amount mismatch (expected ${expectedValue}, got ${receivedAmount})`,
+        ),
+      );
+    }
+
+    if (captureStatus !== "COMPLETED") {
+      order.paymentStatus = "failed";
+      order.paymentDetails = {
+        ...(order.paymentDetails || {}),
+        orderId: paypalOrderId,
+        captureId,
+        payerId,
+        email: payerEmail,
+        status: captureStatus || "FAILED",
+        provider: "paypal",
+      };
+      await order.save();
+      return next(new CustomError(400, "PayPal payment not completed"));
+    }
+
+    order.paymentStatus = "successful";
+    order.paymentDetails = {
+      ...(order.paymentDetails || {}),
+      orderId: paypalOrderId,
+      captureId,
+      payerId,
+      email: payerEmail,
+      status: captureStatus,
+      provider: "paypal",
+    };
+    await order.save();
+
+    await CartModel.deleteMany({ userId });
+
+    let responseOrder = order;
+    if (order.orderStatus === ORDER_STATUSES.PLACED) {
+      await assignDeliveryAgent(order._id.toString(), req.app);
+      responseOrder = await OrderModel.findById(order._id);
+    }
+
+    new ApiResponse(200, "Payment captured successfully", responseOrder).send(res);
+  },
+);

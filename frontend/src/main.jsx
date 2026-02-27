@@ -8,15 +8,18 @@ import { BrowserRouter } from "react-router-dom";
 
 import { CartProvider } from "./context/CartContext.jsx";
 import { LocationProvider } from "./context/LocationContext.jsx";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <BrowserRouter>
-    <AuthProvider>
-      <CartProvider>
-        <LocationProvider>
-          <App />
-        </LocationProvider>
-      </CartProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <CartProvider>
+          <LocationProvider>
+            <App />
+          </LocationProvider>
+        </CartProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </BrowserRouter>,
 );

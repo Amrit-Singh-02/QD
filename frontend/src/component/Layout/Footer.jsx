@@ -11,10 +11,10 @@ const Footer = () => {
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-blinkit-green rounded-xl flex items-center justify-center">
-                <span className="text-white font-black text-lg">B</span>
+                <span className="text-white font-black text-lg">Q</span>
               </div>
               <h2 className="text-xl font-extrabold">
-                blink<span className="text-blinkit-green">it</span>
+                Quick<span className="text-blinkit-green">DROP</span>
               </h2>
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed mb-4">
@@ -93,7 +93,7 @@ const Footer = () => {
             © 2026 blinkit clone. Built with ❤️ for learning purposes.
           </p>
           <p className="text-gray-500 text-xs">
-            Not affiliated with Blinkit / Zomato.
+            Not affiliated with Quick DROP / Zomato.
           </p>
         </div>
       </div>

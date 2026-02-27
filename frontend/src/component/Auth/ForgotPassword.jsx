@@ -6,6 +6,7 @@ const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [resending, setResending] = useState(false);
+  
   const [countdown, setCountdown] = useState(0);
 
   const { forgotPassword, loading } = useAuth();
@@ -48,7 +49,7 @@ const ForgotPassword = () => {
             <span className="text-white font-black text-lg">B</span>
           </div>
           <h1 className="text-2xl font-extrabold text-blinkit-dark">
-            blink<span className="text-blinkit-green">it</span>
+            Quick<span className="text-blinkit-green">DROP</span>
           </h1>
         </Link>
 
