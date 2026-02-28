@@ -402,20 +402,24 @@ const Cart = () => {
                              <h2 className="font-bold text-lg text-blinkit-dark mb-4">Items in Cart ({cart.length})</h2>
                              <div className="space-y-4">
                                 {cart.map((item) => (
-                                    <div key={item._id} className="flex gap-4 items-center">
-                                        <div className="w-16 h-16 bg-blinkit-light-gray rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
-                                             {item.productId?.images && item.productId.images.length > 0 ? (
-                                                <img src={item.productId.images[0].url} alt={item.productId.name} className="w-full h-full object-contain" />
-                                             ) : (
-                                                <span className="text-2xl">📦</span>
-                                             )}
+                                    <div key={item._id} className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center py-4 border-b last:border-0 border-gray-100">
+                                        <div className="flex gap-3 w-full sm:w-auto flex-1">
+                                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blinkit-light-gray rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative border border-gray-200">
+                                                {item.productId?.images && item.productId.images.length > 0 ? (
+                                                    <img src={item.productId.images[0].url} alt={item.productId.name} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                                                ) : (
+                                                    <span className="text-xl sm:text-2xl text-gray-400">📦</span>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0 pr-2 sm:pr-4">
+                                                <h3 className="font-semibold text-blinkit-dark line-clamp-2 text-sm sm:text-base leading-snug">{item.productId?.name || 'Product'}</h3>
+                                                <p className="text-xs text-blinkit-gray mt-1">{item.productId?.weight || '1 unit'}</p>
+                                                <div className="font-bold text-sm text-blinkit-dark mt-1 sm:hidden">₹{item.productId?.price * item.quantity || 0}</div>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-medium text-blinkit-dark truncate text-sm">{item.productId?.name || 'Product'}</h3>
-                                            <p className="text-xs text-blinkit-gray">{item.productId?.weight || '1 unit'}</p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex items-center gap-2 bg-blinkit-green text-white rounded px-2 py-1 text-xs">
+
+                                        <div className="flex items-center justify-between w-full sm:w-auto sm:justify-end gap-4 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
+                                            <div className="flex items-center gap-2 bg-blinkit-green/10 sm:bg-blinkit-green text-blinkit-green sm:text-white rounded-lg px-2 py-1 shadow-sm border border-blinkit-green/20 sm:border-transparent">
                                                 <button
                                                     onClick={() => {
                                                         if (item.quantity <= 1) {
@@ -424,24 +428,27 @@ const Cart = () => {
                                                             updateQuantity(item._id, item.quantity - 1);
                                                         }
                                                     }}
+                                                    className="w-6 h-6 flex items-center justify-center font-bold text-lg hover:bg-black/5 sm:hover:bg-white/20 rounded transition-colors"
                                                     aria-label="Decrease quantity"
-                                                >-</button>
-                                                <span>{item.quantity}</span>
+                                                >−</button>
+                                                <span className="font-bold text-sm w-4 text-center">{item.quantity}</span>
                                                 <button
                                                     onClick={() => updateQuantity(item._id, item.quantity + 1)}
+                                                    className="w-6 h-6 flex items-center justify-center font-bold text-lg hover:bg-black/5 sm:hover:bg-white/20 rounded transition-colors"
                                                     aria-label="Increase quantity"
                                                 >+</button>
                                             </div>
-                                            <div className="font-semibold text-sm text-blinkit-dark w-16 text-right">{item.productId?.price * item.quantity || 0}</div>
+                                            <div className="hidden sm:block font-bold text-sm sm:text-base text-blinkit-dark w-16 text-right">
+                                                ₹{item.productId?.price * item.quantity || 0}
+                                            </div>
                                             <button
                                                 onClick={() => removeFromCart(item._id)}
-                                                className="text-red-500 hover:text-red-700"
+                                                className="text-gray-400 hover:text-red-500 transition-colors p-2 -mr-2 sm:mr-0"
                                                 aria-label="Remove item"
                                             >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                             </button>
                                         </div>
-
                                     </div>
                                 ))}
                              </div>
@@ -449,8 +456,8 @@ const Cart = () => {
                     </div>
 
                     {/* Right Column - Payment & Bill */}
-                    <div className="lg:w-96 shrink-0">
-                        <div className="bg-white p-6 rounded-xl border border-blinkit-border shadow-sm sticky top-24 space-y-6">
+                    <div className="w-full lg:w-96 shrink-0 mt-6 lg:mt-0">
+                        <div className="bg-white p-4 sm:p-6 rounded-xl border border-blinkit-border shadow-sm lg:sticky top-24 space-y-4 sm:space-y-6">
 
                             {/* Payment Method */}
                             <div>
@@ -536,12 +543,12 @@ const Cart = () => {
                                     <button
                                         onClick={handlePlaceOrder}
                                         disabled={loading || (isAuthenticated && (!selectedAddress || !location?.label))}
-                                        className={`w-full py-4 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2
+                                        className={`w-full py-3.5 sm:py-4 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 text-base sm:text-lg
                                             ${loading || (isAuthenticated && (!selectedAddress || !location?.label)) ? 'bg-gray-400 cursor-not-allowed' : 'bg-blinkit-green hover:bg-blinkit-green-dark hover:shadow-xl hover:-translate-y-0.5'}`}
                                     >
                                         {loading ? (
                                             <>
-                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                                 <span>Placing Order...</span>
                                             </>
                                         ) : (

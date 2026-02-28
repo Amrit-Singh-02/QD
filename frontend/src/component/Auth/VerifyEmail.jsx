@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -6,17 +6,19 @@ const VerifyEmail = () => {
   const { verifyMail } = useAuth();
   const { emailToken } = useParams();
   const navigate = useNavigate();
+  const verifyRequestIdRef = useRef(0);
   const [successMessage, setSuccessMessage] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [status, setStatus] = useState('idle'); // idle | loading | success | error
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    let isActive = true;
+    const requestId = ++verifyRequestIdRef.current;
+    let cancelled = false;
 
     const verify = async () => {
       if (!emailToken) {
-        if (!isActive) return;
+        if (cancelled || verifyRequestIdRef.current !== requestId) return;
         setStatus('error');
         setErrorMessage('Invalid verification link.');
         return;
@@ -24,7 +26,7 @@ const VerifyEmail = () => {
 
       setStatus('loading');
       const result = await verifyMail(emailToken);
-      if (!isActive) return;
+      if (cancelled || verifyRequestIdRef.current !== requestId) return;
 
       if (result?.success) {
         setSuccessMessage(result.message || 'Email verified successfully.');
@@ -39,7 +41,7 @@ const VerifyEmail = () => {
     verify();
 
     return () => {
-      isActive = false;
+      cancelled = true;
     };
   }, [emailToken, verifyMail]);
 

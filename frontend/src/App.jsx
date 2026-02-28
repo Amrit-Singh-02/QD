@@ -27,10 +27,10 @@ import AdminDashboard from './pages/AdminDashboard';
 import { useAuth } from './context/AuthContext';
 
 const DeliveryGate = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, authLoading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-blinkit-bg flex items-center justify-center">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blinkit-green" />

@@ -132,8 +132,8 @@ const Navbar = () => {
             {isTracking && <span className="w-2 h-2 rounded-full bg-blinkit-green animate-pulse-soft" />}
           </button>
 
-          {/* Search */}
-          <div className="flex-1 max-w-2xl">
+          {/* Search - Hide on very small screens, show below in a new row, or shrink */}
+          <div className="flex-1 max-w-2xl hidden md:block">
             <div className="relative" ref={searchRef}>
               <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-blinkit-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -159,7 +159,7 @@ const Navbar = () => {
                     setShowSearchResults(false);
                   }
                 }}
-                className="w-full pl-11 pr-4 py-2.5 bg-blinkit-light-gray border border-blinkit-border rounded-xl text-sm placeholder:text-blinkit-gray/70 focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green transition-all"
+                className="w-full pl-11 pr-4 py-2 sm:py-2.5 bg-blinkit-light-gray border border-blinkit-border rounded-xl text-sm placeholder:text-blinkit-gray/70 focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green transition-all"
               />
 
               {showSearchResults && trimmedSearch.length > 0 && (
@@ -428,6 +428,86 @@ const Navbar = () => {
               )}
             </Link>
           </div>
+        </div>
+
+        {/* Mobile Search - Shows below the header on small screens */}
+        <div className="mt-3 md:hidden">
+            <div className="relative" ref={searchRef}>
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-blinkit-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder='Search products...'
+                value={searchQuery}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchQuery(value);
+                  if (value.trim().length > 0) {
+                    setShowSearchResults(true);
+                  } else {
+                    setShowSearchResults(false);
+                  }
+                }}
+                className="w-full pl-10 pr-4 py-2.5 bg-blinkit-light-gray border border-blinkit-border rounded-xl text-sm placeholder:text-blinkit-gray/70 focus:outline-none focus:border-blinkit-green transition-all"
+              />
+              
+              {/* Duplicate search results logic for mobile dropdown overlay */}
+              {showSearchResults && trimmedSearch.length > 0 && (
+                <div className="absolute left-0 right-0 mt-2 bg-white border border-blinkit-border rounded-xl shadow-xl z-50 overflow-hidden">
+                  {!shouldSearch ? (
+                    <div className="px-4 py-3 text-sm text-blinkit-gray">
+                      Type at least 2 characters to search.
+                    </div>
+                  ) : searchLoading ? (
+                    <div className="px-4 py-3 text-sm text-blinkit-gray">
+                      Searching products...
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="max-h-72 overflow-y-auto divide-y divide-blinkit-border">
+                      {searchResults.map((product) => {
+                        const id = product?.id || product?._id;
+                        const imageUrl =
+                          product?.images?.[0]?.url ||
+                          product?.image ||
+                          'https://placehold.co/60x60?text=No+Image';
+                        return (
+                          <Link
+                            key={id}
+                            to={`/product/${id}`}
+                            onClick={() => {
+                              setShowSearchResults(false);
+                              setSearchQuery('');
+                            }}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-blinkit-light-gray transition-colors"
+                          >
+                             <div className="w-10 h-10 rounded-lg bg-blinkit-light-gray overflow-hidden flex items-center justify-center shrink-0">
+                                <img
+                                  src={imageUrl}
+                                  alt={product?.name || 'Product'}
+                                  className="w-full h-full object-contain mix-blend-multiply"
+                                />
+                             </div>
+                             <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-blinkit-dark truncate">
+                                  {product?.name || 'Product'}
+                                </p>
+                             </div>
+                             <div className="text-sm font-bold text-blinkit-dark">
+                                {"\u20B9"}{product?.price || 0}
+                             </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-blinkit-gray">
+                      No products found.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
         </div>
       </div>
       </header>

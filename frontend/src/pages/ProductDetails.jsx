@@ -112,36 +112,36 @@ const ProductDetails = () => {
                 <div className="bg-white rounded-3xl shadow-sm border border-blinkit-border overflow-hidden flex flex-col md:flex-row">
                     
                     {/* Image Section */}
-                    <div className="md:w-1/2 p-8 border-b md:border-b-0 md:border-r border-blinkit-border flex items-center justify-center bg-white relative">
+                    <div className="w-full md:w-1/2 p-4 sm:p-8 border-b md:border-b-0 md:border-r border-blinkit-border flex items-center justify-center bg-white relative">
                          {discount > 0 && (
-                            <span className="absolute top-6 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-md z-10">
+                            <span className="absolute top-4 left-4 sm:top-6 sm:left-6 bg-blue-600 text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 rounded-md z-10">
                                 {discount}% OFF
                             </span>
                         )}
                         <img 
                             src={imageUrl} 
                             alt={product.name} 
-                            className="max-w-full max-h-[400px] object-contain mix-blend-multiply hover:scale-105 transition-transform duration-500"
+                            className="max-w-full max-h-[300px] sm:max-h-[400px] object-contain mix-blend-multiply hover:scale-105 transition-transform duration-500"
                             onError={(e) => {e.target.src = 'https://placehold.co/400x400?text=Error'}}
                         />
                     </div>
 
                     {/* Details Section */}
-                    <div className="md:w-1/2 p-6 md:p-10 flex flex-col">
+                    <div className="w-full md:w-1/2 p-4 sm:p-6 md:p-10 flex flex-col">
                         <div className="mb-6">
-                            <h1 className="text-3xl font-bold text-blinkit-dark mb-2 leading-tight">{product.name}</h1>
-                            <div className="flex items-center gap-2 mb-4">
-                                <span className="px-2 py-1 bg-blinkit-light-gray text-blinkit-gray text-xs font-semibold rounded">{product.brand}</span>
-                                <span className="text-blinkit-gray text-sm">•</span>
-                                <span className="text-blinkit-gray text-sm">{product.weight || '1 unit'}</span>
+                            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-blinkit-dark mb-2 leading-tight">{product.name}</h1>
+                            <div className="flex flex-wrap items-center gap-2 mb-4">
+                                <span className="px-2 py-1 bg-blinkit-light-gray text-blinkit-gray text-[10px] sm:text-xs font-semibold rounded">{product.brand}</span>
+                                <span className="hidden sm:inline text-blinkit-gray text-sm">•</span>
+                                <span className="text-blinkit-gray text-[10px] sm:text-sm">{product.weight || '1 unit'}</span>
                             </div>
                             
-                            <div className="flex items-baseline gap-3 mb-6">
-                                <span className="text-4xl font-bold text-blinkit-dark">₹{product.price}</span>
+                            <div className="flex items-baseline gap-2 sm:gap-3 mb-6">
+                                <span className="text-2xl sm:text-3xl md:text-4xl font-bold text-blinkit-dark">₹{product.price}</span>
                                 {product.mrp && (
                                     <>
-                                        <span className="text-lg text-blinkit-gray line-through">₹{product.mrp}</span>
-                                        <span className="text-green-600 font-bold text-sm">Save ₹{product.mrp - product.price}</span>
+                                        <span className="text-sm sm:text-lg text-blinkit-gray line-through">₹{product.mrp}</span>
+                                        <span className="text-green-600 font-bold text-xs sm:text-sm">Save ₹{product.mrp - product.price}</span>
                                     </>
                                 )}
                             </div>
@@ -154,31 +154,31 @@ const ProductDetails = () => {
                             </div>
                         </div>
 
-                        <div className="mt-auto">
+                        <div className="mt-auto pt-4 border-t border-blinkit-border md:border-none md:pt-0">
                             {product.stocks > 0 ? (
-                                <div className="flex items-center gap-4">
-                                     <div className="flex item-center border border-blinkit-green rounded-xl overflow-hidden">
+                                <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+                                     <div className="flex item-center border border-blinkit-green rounded-xl overflow-hidden w-full sm:w-auto h-12 sm:h-auto">
                                         <button 
                                             onClick={decrementQty}
-                                            className="px-4 py-3 text-blinkit-green hover:bg-blinkit-green/10 transition-colors font-bold text-xl"
+                                            className="flex-1 sm:flex-none px-4 py-3 sm:py-3 text-blinkit-green hover:bg-blinkit-green/10 transition-colors font-bold text-xl flex items-center justify-center"
                                         >−</button>
-                                        <div className="px-4 py-3 font-bold text-blinkit-dark min-w-[3rem] text-center flex items-center justify-center">
+                                        <div className="px-4 py-3 font-bold text-blinkit-dark min-w-[3rem] text-center flex items-center justify-center border-x border-blinkit-green/20">
                                             {quantity}
                                         </div>
                                         <button 
                                             onClick={incrementQty}
-                                            className="px-4 py-3 text-blinkit-green hover:bg-blinkit-green/10 transition-colors font-bold text-xl"
+                                            className="flex-1 sm:flex-none px-4 py-3 sm:py-3 text-blinkit-green hover:bg-blinkit-green/10 transition-colors font-bold text-xl flex items-center justify-center"
                                         >+</button>
                                      </div>
                                      <button 
                                         onClick={handleAddToCart}
-                                        className="flex-1 py-3.5 bg-blinkit-green text-white font-bold rounded-xl hover:bg-blinkit-green-dark transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-lg"
+                                        className="w-full sm:flex-1 py-3 sm:py-3.5 bg-blinkit-green text-white font-bold rounded-xl hover:bg-blinkit-green-dark transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-base sm:text-lg"
                                      >
                                         Add to Cart
                                      </button>
                                 </div>
                             ) : (
-                                <div className="p-4 bg-red-50 text-red-600 font-bold rounded-xl text-center border border-red-100">
+                                <div className="p-4 bg-red-50 text-red-600 font-bold rounded-xl text-center border border-red-100 w-full">
                                     Out of Stock
                                 </div>
                             )}

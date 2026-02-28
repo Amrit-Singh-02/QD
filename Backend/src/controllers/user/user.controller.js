@@ -4,7 +4,7 @@ import expressAsyncHandler from "express-async-handler";
 import ApiResponse from "../../utils/ApiResponse.util.js";
 import CustomError from "../../utils/customError.util.js";
 import { generateToken } from "../../utils/jwt.util.js";
-import { sendEmail } from "../../utils/nodemailer.util.js";
+import { sendEmail } from "../../utils/sendEmail.util.js";
 import crypto from "crypto";
 
 // ! ================ Register User ================================
@@ -23,13 +23,16 @@ export const registerUser = expressAsyncHandler(async (req, res, next) => {
 
   const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${emailVerificationToken}`;
 
-  void sendEmail(
-    email,
-    "Email Verification",
-    `<h1> this is for verification</h1> <a href="${verificationUrl}">Click Here</a> <h3> ${emailVerificationToken} </h3>`,
-  ).catch((err) => {
+  try {
+    await sendEmail(
+      email,
+      "Email Verification",
+      `<h1> this is for verification</h1> <a href="${verificationUrl}">Click Here</a> <h3> ${emailVerificationToken} </h3>`,
+    );
+  } catch (err) {
     console.error("Verification email failed:", err);
-  });
+    return next(new CustomError(502, "Failed to send verification email"));
+  }
 
   new ApiResponse(201, "User Registered Successfully. Verification link sent to your email.", newUser).send(res);
 });
@@ -80,13 +83,16 @@ export const resendEmailVerificationLink = expressAsyncHandler(
 
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${emailVerificationToken}`;
 
-    void sendEmail(
-      email,
-      "Resend Email Verification",
-      `<h1> this is for verification</h1> <a href="${verificationUrl}">Click Here</a> <h3> ${emailVerificationToken} </h3>`,
-    ).catch((err) => {
+    try {
+      await sendEmail(
+        email,
+        "Resend Email Verification",
+        `<h1> this is for verification</h1> <a href="${verificationUrl}">Click Here</a> <h3> ${emailVerificationToken} </h3>`,
+      );
+    } catch (err) {
       console.error("Resend verification email failed:", err);
-    });
+      return next(new CustomError(502, "Failed to send verification email"));
+    }
 
     new ApiResponse(200, "Verification link sent successfully").send(res);
   },
@@ -176,13 +182,16 @@ export const forgotPassword = expressAsyncHandler(async (req, res, next) => {
 
   const verificationUrl = `${process.env.FRONTEND_URL}/reset-password/${passwordVerificationToken}`;
 
-  void sendEmail(
-    email,
-    "Reset Password",
-    `<h1> Password Reset</h1> <a href="${verificationUrl}">Click Here</a> <h3> ${passwordVerificationToken} </h3>`,
-  ).catch((err) => {
+  try {
+    await sendEmail(
+      email,
+      "Reset Password",
+      `<h1> Password Reset</h1> <a href="${verificationUrl}">Click Here</a> <h3> ${passwordVerificationToken} </h3>`,
+    );
+  } catch (err) {
     console.error("Reset password email failed:", err);
-  });
+    return next(new CustomError(502, "Failed to send reset password email"));
+  }
 
   new ApiResponse(
     200,

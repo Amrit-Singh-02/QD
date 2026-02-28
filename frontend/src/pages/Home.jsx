@@ -360,7 +360,7 @@ const Home = () => {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
               {Array.from({ length: pageSize }).map((_, index) => (
                 <ProductCardShimmer key={`shimmer-${index}`} />
               ))}
@@ -381,7 +381,7 @@ const Home = () => {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
                   {products.map((product) => {
                     const id = product?.id || product?._id;
                     const discount = getDiscount(product);
@@ -398,11 +398,11 @@ const Home = () => {
                           from: `${location.pathname}${location.search}${location.hash}`,
                         }}
                         onClick={recordHomeScroll}
-                        className="group flex flex-col bg-white rounded-2xl border border-blinkit-border p-4 hover:shadow-lg transition-all"
+                        className="group flex flex-col bg-white rounded-2xl border border-blinkit-border p-3 sm:p-4 hover:shadow-lg transition-all"
                       >
-                        <div className="relative rounded-xl bg-blinkit-light-gray h-32 flex items-center justify-center overflow-hidden">
+                        <div className="relative rounded-xl bg-blinkit-light-gray h-28 sm:h-32 flex items-center justify-center overflow-hidden">
                           {discount > 0 && (
-                            <span className="absolute top-2 left-2 bg-blinkit-green text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                            <span className="absolute top-2 left-2 bg-blinkit-green text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md">
                               {discount}% OFF
                             </span>
                           )}
@@ -415,22 +415,22 @@ const Home = () => {
                             }}
                           />
                         </div>
-                        <div className="mt-3 flex-1">
-                          <p className="text-xs text-blinkit-gray">{product.brand || 'Brand'}</p>
-                          <h3 className="text-sm font-semibold text-blinkit-dark mt-1 line-clamp-2 min-h-[36px]">
+                        <div className="mt-2 sm:mt-3 flex-1">
+                          <p className="text-[10px] sm:text-xs text-blinkit-gray truncate">{product.brand || 'Brand'}</p>
+                          <h3 className="text-xs sm:text-sm font-semibold text-blinkit-dark mt-1 line-clamp-2 min-h-[32px] sm:min-h-[36px]">
                             {product.name}
                           </h3>
                         </div>
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-bold text-blinkit-dark">Rs {product.price}</span>
+                        <div className="mt-2 sm:mt-3 flex items-center justify-between">
+                          <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2">
+                            <span className="font-bold text-xs sm:text-sm text-blinkit-dark">₹{product.price}</span>
                             {product.mrp && discount > 0 && (
-                              <span className="text-xs text-blinkit-gray line-through">Rs {product.mrp}</span>
+                              <span className="text-[9px] sm:text-[10px] text-blinkit-gray line-through">₹{product.mrp}</span>
                             )}
                           </div>
                           <button
                             onClick={(event) => handleAddToCart(event, product)}
-                            className="px-3 py-1.5 rounded-lg border border-blinkit-green text-blinkit-green text-xs font-bold uppercase hover:bg-blinkit-green hover:text-white transition-colors"
+                            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-blinkit-green text-blinkit-green text-[10px] sm:text-xs font-bold uppercase hover:bg-blinkit-green hover:text-white transition-colors"
                           >
                             Add
                           </button>

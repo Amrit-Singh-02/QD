@@ -325,20 +325,20 @@ const MyProfile = () => {
                       key={userId}
                       className="border border-blinkit-border rounded-xl p-4"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
                         <div>
-                          <p className="font-semibold text-blinkit-dark">
+                          <p className="font-semibold text-blinkit-dark text-base sm:text-lg">
                             {adminUser?.name || 'User'}
                           </p>
-                          <p className="text-sm text-blinkit-gray">
+                          <p className="text-xs sm:text-sm text-blinkit-gray">
                             {adminUser?.email || 'No email'}
                           </p>
-                          <p className="text-xs text-blinkit-gray">
+                          <p className="text-[10px] sm:text-xs text-blinkit-gray mt-1">
                             Phone: {adminUser?.phone || 'N/A'} · Role:{' '}
-                            {adminUser?.role || 'user'}
+                            <span className="font-semibold text-blinkit-dark capitalize">{adminUser?.role || 'user'}</span>
                           </p>
                         </div>
-                        <div className="text-xs text-blinkit-gray">
+                        <div className="text-[10px] sm:text-xs text-blinkit-gray font-medium">
                           Joined:{' '}
                           {adminUser?.createdAt
                             ? new Date(adminUser.createdAt).toLocaleDateString()
@@ -464,33 +464,33 @@ const MyProfile = () => {
                       key={agentId}
                       className="border border-blinkit-border rounded-xl p-4"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                         <div>
-                          <p className="font-semibold text-blinkit-dark">
+                          <p className="font-semibold text-blinkit-dark text-base sm:text-lg">
                             {agent?.name || 'Delivery Agent'}
                           </p>
-                          <p className="text-sm text-blinkit-gray">
+                          <p className="text-xs sm:text-sm text-blinkit-gray">
                             {agent?.email || 'No email'}
                           </p>
-                          <p className="text-xs text-blinkit-gray">
+                          <p className="text-[10px] sm:text-xs text-blinkit-gray mt-1">
                             Phone: {agent?.phone || 'N/A'} - Pincode:{' '}
-                            {agent?.pincode || 'N/A'}
+                            <span className="font-semibold">{agent?.pincode || 'N/A'}</span>
                           </p>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
                           <button
                             type="button"
                             onClick={() =>
                               isEditingAgent ? cancelEditAgent() : startEditAgent(agent)
                             }
-                            className="px-3 py-1.5 rounded-lg border border-blinkit-border text-xs font-semibold text-blinkit-dark hover:bg-blinkit-light-gray"
+                            className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg border border-blinkit-border text-xs sm:text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray transition-colors"
                           >
                             {isEditingAgent ? 'Cancel' : 'Edit'}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteAgent(agentId)}
-                            className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50"
+                            className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg border border-red-200 text-xs sm:text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
                           >
                             Delete
                           </button>
@@ -583,13 +583,13 @@ const MyProfile = () => {
                             type="file"
                             accept="image/*"
                             onChange={handleAgentFileChange}
-                            className="w-full rounded-lg border border-blinkit-border px-3 py-2 md:col-span-2"
+                            className="w-full rounded-lg border border-blinkit-border px-3 py-2 md:col-span-2 text-xs sm:text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blinkit-light-gray file:text-blinkit-dark hover:file:bg-gray-200"
                           />
-                          <div className="md:col-span-2 flex justify-end gap-2">
+                          <div className="md:col-span-2 flex flex-col sm:flex-row justify-end gap-2 mt-2">
                             <button
                               type="button"
                               onClick={cancelEditAgent}
-                              className="px-4 py-2 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray"
+                              className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray transition-colors"
                             >
                               Cancel
                             </button>
@@ -597,7 +597,7 @@ const MyProfile = () => {
                               type="button"
                               onClick={() => handleUpdateAgent(agentId)}
                               disabled={agentUpdating}
-                              className="px-4 py-2 rounded-lg bg-blinkit-green text-white text-sm font-semibold hover:bg-blinkit-green-dark disabled:opacity-60"
+                              className="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-blinkit-green text-white text-sm font-semibold hover:bg-blinkit-green-dark disabled:opacity-60 transition-colors"
                             >
                               {agentUpdating ? 'Saving...' : 'Save Changes'}
                             </button>

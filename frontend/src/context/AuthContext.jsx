@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { authService } from "../services/authService";
 import { deliveryService } from "../services/deliveryService";
 import toast from "react-hot-toast";
@@ -16,6 +23,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -28,7 +36,7 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = async () => {
     const requestId = ++authCheckIdRef.current;
     try {
-      setLoading(true);
+      setAuthLoading(true);
       setError(null);
       const response = await authService.current();
       if (authCheckIdRef.current !== requestId) {
@@ -57,7 +65,7 @@ export const AuthProvider = ({ children }) => {
       }
     } finally {
       if (authCheckIdRef.current === requestId) {
-        setLoading(false);
+        setAuthLoading(false);
       }
     }
   };
@@ -82,22 +90,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const verifyMail = async (emailToken) => {
+  const verifyMail = useCallback(async (emailToken) => {
     try {
       setLoading(true);
       setError(null);
       const response = await authService.verifyEmail(emailToken);
-      toast.success(response.message || "Email Verified Successfully.");
+      toast.success(response.message || "Email Verified Successfully.", {
+        id: "verify-email",
+      });
       return { success: true ,message:response.message};
     } catch (error) {
       const errMsg = error.response?.data?.message || "Email not verified";
       setError(errMsg);
-      toast.error(errMsg);
+      toast.error(errMsg, { id: "verify-email" });
       return { success: false, error: errMsg };
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const resend = async (email) => {
     try {
@@ -229,6 +239,7 @@ export const AuthProvider = ({ children }) => {
     resend,
     forgotPassword,
     resetPassword,
+    authLoading,
     loading,
     user,
     error,
