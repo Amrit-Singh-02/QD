@@ -3,12 +3,21 @@ import { useAuth } from "../../context/AuthContext";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const Login = () => {
-  const { login, loading } = useAuth();
+  const { login, loading, sendOtp, verifyOtp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const [loginRole, setLoginRole] = useState("user");
+  const [loginMethod, setLoginMethod] = useState("password");
+  const [phoneData, setPhoneData] = useState({
+    phone: "",
+    code: "",
+  });
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpErrors, setOtpErrors] = useState({});
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -24,6 +33,14 @@ const Login = () => {
     }
   }, [location.search]);
 
+  useEffect(() => {
+    if (loginRole === "delivery") {
+      setLoginMethod("password");
+      setOtpSent(false);
+      setOtpErrors({});
+    }
+  }, [loginRole]);
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -32,6 +49,83 @@ const Login = () => {
     // Clear error on change
     if (formErrors[e.target.name]) {
       setFormErrors({ ...formErrors, [e.target.name]: "" });
+    }
+  };
+
+  const handleLoginMethodChange = (method) => {
+    setLoginMethod(method);
+    setFormErrors({});
+    setOtpErrors({});
+  };
+
+  const handlePhoneChange = (e) => {
+    setPhoneData({
+      ...phoneData,
+      [e.target.name]: e.target.value,
+    });
+    if (otpErrors[e.target.name]) {
+      setOtpErrors({ ...otpErrors, [e.target.name]: "" });
+    }
+  };
+
+  const validatePhoneOnly = () => {
+    const errors = {};
+    const phone = phoneData.phone.trim();
+
+    if (!phone) {
+      errors.phone = "Mobile number is required";
+    } else if (!/^[6-9]\d{9}$/.test(phone)) {
+      errors.phone = "Enter a valid 10-digit mobile number starting with 6-9";
+    }
+
+    setOtpErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validatePhoneAndCode = () => {
+    const errors = {};
+    const phone = phoneData.phone.trim();
+
+    if (!phone) {
+      errors.phone = "Mobile number is required";
+    } else if (!/^[6-9]\d{9}$/.test(phone)) {
+      errors.phone = "Enter a valid 10-digit mobile number starting with 6-9";
+    }
+
+    if (!phoneData.code.trim()) {
+      errors.code = "OTP is required";
+    } else if (phoneData.code.trim().length < 4) {
+      errors.code = "Enter a valid OTP";
+    }
+
+    setOtpErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSendOtp = async () => {
+    if (!validatePhoneOnly()) return;
+    setOtpSending(true);
+    const result = await sendOtp(phoneData.phone.trim());
+    setOtpSending(false);
+    if (result.success) {
+      setOtpSent(true);
+      setPhoneData((prev) => ({ ...prev, code: "" }));
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!validatePhoneAndCode()) return;
+    setOtpVerifying(true);
+    const result = await verifyOtp({
+      phone: phoneData.phone.trim(),
+      code: phoneData.code.trim(),
+    });
+    setOtpVerifying(false);
+
+    if (result.success) {
+      setPhoneData({ phone: "", code: "" });
+      setOtpSent(false);
+      navigate("/");
     }
   };
 
@@ -149,7 +243,35 @@ const Login = () => {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          {loginRole !== "delivery" && (
+            <div className="flex items-center gap-2 bg-blinkit-light-gray p-1 rounded-xl mb-6">
+              <button
+                type="button"
+                onClick={() => handleLoginMethodChange("password")}
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  loginMethod === "password"
+                    ? "bg-white text-blinkit-dark shadow-sm"
+                    : "text-blinkit-gray"
+                }`}
+              >
+                Email & Password
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLoginMethodChange("phone")}
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  loginMethod === "phone"
+                    ? "bg-white text-blinkit-dark shadow-sm"
+                    : "text-blinkit-gray"
+                }`}
+              >
+                Phone OTP
+              </button>
+            </div>
+          )}
+
+          {loginMethod === "password" || loginRole === "delivery" ? (
+            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             {/* Email */}
             <div>
               <label className="block text-sm font-semibold text-blinkit-dark mb-1.5">
@@ -242,7 +364,94 @@ const Login = () => {
                 "Sign In"
               )}
             </button>
-          </form>
+            </form>
+        ) : (
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-semibold text-blinkit-dark mb-1.5">
+                Mobile Number
+              </label>
+              <div className="relative">
+                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-blinkit-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={phoneData.phone}
+                  onChange={handlePhoneChange}
+                  placeholder="9876543210"
+                  maxLength={10}
+                  className={`w-full pl-11 pr-4 py-3 bg-blinkit-light-gray border rounded-xl text-sm placeholder:text-blinkit-gray/60 focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green transition-all ${otpErrors.phone ? 'border-red-400 focus:ring-red-200 focus:border-red-400' : 'border-blinkit-border'}`}
+                />
+              </div>
+              {otpErrors.phone && <p className="text-red-500 text-xs mt-1">{otpErrors.phone}</p>}
+              {!otpErrors.phone && (
+                <p className="text-blinkit-gray text-xs mt-1">We'll text you a 6-digit code.</p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSendOtp}
+              disabled={otpSending}
+              className="w-full py-3.5 border-2 border-blinkit-green text-blinkit-green font-bold rounded-xl hover:bg-blinkit-green-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {otpSending ? "Sending OTP..." : otpSent ? "Resend OTP" : "Send OTP"}
+            </button>
+
+            {otpSent && (
+              <>
+                <div>
+                  <label className="block text-sm font-semibold text-blinkit-dark mb-1.5">
+                    OTP Code
+                  </label>
+                  <div className="relative">
+                    <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-blinkit-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <input
+                      type="text"
+                      name="code"
+                      value={phoneData.code}
+                      onChange={handlePhoneChange}
+                      placeholder="Enter OTP"
+                      maxLength={6}
+                      inputMode="numeric"
+                      className={`w-full pl-11 pr-4 py-3 bg-blinkit-light-gray border rounded-xl text-sm placeholder:text-blinkit-gray/60 focus:outline-none focus:ring-2 focus:ring-blinkit-green/30 focus:border-blinkit-green transition-all ${otpErrors.code ? 'border-red-400 focus:ring-red-200 focus:border-red-400' : 'border-blinkit-border'}`}
+                    />
+                  </div>
+                  {otpErrors.code && <p className="text-red-500 text-xs mt-1">{otpErrors.code}</p>}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleVerifyOtp}
+                  disabled={otpVerifying}
+                  className="w-full py-3.5 bg-blinkit-green text-white font-bold rounded-xl hover:bg-blinkit-green-dark transition-all shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {otpVerifying ? (
+                    <>
+                      <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Verifying...
+                    </>
+                  ) : (
+                    "Verify & Sign In"
+                  )}
+                </button>
+              </>
+            )}
+
+            {!otpSent && (
+              <p className="text-xs text-blinkit-gray text-center">
+                We'll create an account if this number is new.
+              </p>
+            )}
+          </div>
+        )}
 
           {loginRole === "delivery" ? (
             <div className="mt-8 text-center text-xs text-blinkit-gray">

@@ -21,6 +21,7 @@ import reviewRoutes from "./src/routes/user/review.route.js";
 import helpTicketRoutes from "./src/routes/user/helpTicket.route.js";
 import adminHelpTicketRoutes from "./src/routes/admin/helpTicket.route.js";
 import adminDashboardRoutes from "./src/routes/admin/dashboard.route.js";
+import otpRoutes from "./src/routes/otp.routes.js";
 
 const app = express();
 app.use(
@@ -41,6 +42,7 @@ app.use("/api/v1/admin/delivery-agent", adminDeliveryAgentRoutes);
 app.use("/api/v1/admin/user", adminUserRoutes);
 app.use("/api/v1/shop/product",productRoutes);
 app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/auth", otpRoutes);
 app.use("/api/v1/user/address", addressRoutes);
 app.use("/api/v1/cart",cartRouter)
 app.use("/api/v1/user/order", orderRoutes)

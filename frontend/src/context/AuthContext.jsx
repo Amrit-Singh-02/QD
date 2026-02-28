@@ -129,6 +129,52 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const sendOtp = async (phone) => {
+    try {
+      setError(null);
+      const response = await authService.sendOtp(phone);
+      toast.success(response.message || "OTP sent successfully");
+      return { success: true, data: response };
+    } catch (error) {
+      const errMsg = error.response?.data?.message || "Failed to send OTP";
+      setError(errMsg);
+      toast.error(errMsg);
+      return { success: false, error: errMsg };
+    }
+  };
+
+  const verifyOtp = async (payload) => {
+    const requestId = ++authCheckIdRef.current;
+    try {
+      setError(null);
+      const response = await authService.verifyOtp(payload);
+      let nextUser = response?.payload;
+
+      if (!nextUser) {
+        try {
+          const currentResponse = await authService.current();
+          nextUser = currentResponse?.payload;
+        } catch (currentError) {
+          console.warn("Failed to fetch current user after OTP login", currentError);
+        }
+      }
+
+      if (authCheckIdRef.current !== requestId) {
+        return { success: false, error: "Stale auth response" };
+      }
+
+      setUser(nextUser || null);
+      setIsAuthenticated(true);
+      toast.success(response.message || "Logged in successfully");
+      return { success: true, data: response };
+    } catch (error) {
+      const errMsg = error.response?.data?.message || "OTP verification failed";
+      setError(errMsg);
+      toast.error(errMsg);
+      return { success: false, error: errMsg };
+    }
+  };
+
   const login = async (credential, authType = "user") => {
     const requestId = ++authCheckIdRef.current;
     try {
@@ -231,6 +277,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const value = {
+    sendOtp,
+    verifyOtp,
     register,
     login,
     logout,

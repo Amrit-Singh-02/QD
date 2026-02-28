@@ -23,6 +23,18 @@ export const authService = {
     return response.data;
   },
 
+  // ~ Send OTP
+  sendOtp: async (phone) => {
+    const response = await api.post("/auth/send-otp", { phone });
+    return response.data;
+  },
+
+  // ~ Verify OTP
+  verifyOtp: async (payload) => {
+    const response = await api.post("/auth/verify-otp", payload);
+    return response.data;
+  },
+
   // ~ logout
   logout: async () => {
     const response = await api.post("/user/logout");
