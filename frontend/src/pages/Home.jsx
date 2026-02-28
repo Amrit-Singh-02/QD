@@ -224,7 +224,7 @@ const Home = () => {
           <div className="relative overflow-hidden rounded-3xl border border-blinkit-border bg-gradient-to-br from-white via-blinkit-yellow-light to-blinkit-green-light">
             <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full bg-blinkit-yellow opacity-30 blur-3xl" />
             <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full bg-blinkit-green opacity-20 blur-3xl" />
-            <div className="relative p-6 md:p-10 flex flex-col md:flex-row gap-8 items-center">
+            {/* <div className="relative p-6 md:p-10 flex flex-col md:flex-row gap-8 items-center">
               <div className="flex-1 animate-fade-in-up">
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 text-xs font-semibold text-blinkit-dark border border-blinkit-border">
                   Delivery in 14 minutes
@@ -278,7 +278,7 @@ const Home = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </section>
 
