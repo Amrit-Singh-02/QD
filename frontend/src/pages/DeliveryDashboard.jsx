@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { io } from "socket.io-client";
+import { createSocket } from "../services/socket";
 import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -100,7 +100,6 @@ const DeliveryDashboard = () => {
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
 
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:4000";
   const lastAgentGeoRef = useRef({ key: "", at: 0 });
   const lastUserGeoRef = useRef({ key: "", at: 0 });
 
@@ -156,10 +155,7 @@ const DeliveryDashboard = () => {
   useEffect(() => {
     if (!agent) return;
 
-    const socket = io(socketUrl, {
-      withCredentials: true,
-      transports: ["websocket"],
-    });
+    const socket = createSocket();
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -247,7 +243,7 @@ const DeliveryDashboard = () => {
       socket.off("agentMessage", handleAgentMessage);
       socket.disconnect();
     };
-  }, [agent, socketUrl]);
+  }, [agent]);
 
   useEffect(() => {
     activeOrderRef.current = activeOrder;

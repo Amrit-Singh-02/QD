@@ -5,7 +5,7 @@ import Footer from '../component/Layout/Footer';
 import { orderService } from '../services/orderService';
 import toast from 'react-hot-toast';
 import ConfirmationModal from '../component/UI/ConfirmationModal';
-import { io } from 'socket.io-client';
+import { createSocket } from '../services/socket';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -227,11 +227,7 @@ const OrderDetails = () => {
         const userId = user?.id || user?._id;
         if (!userId) return;
 
-        const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000';
-        const socket = io(socketUrl, {
-            withCredentials: true,
-            transports: ['websocket'],
-        });
+        const socket = createSocket();
         socketRef.current = socket;
 
         socket.on('connect', () => {

@@ -1,10 +1,24 @@
 import axios from "axios";
 
-const api=axios.create({
-    baseURL:'https://quickdrop-b.onrender.com/api/v1', //http://localhost:4000/api/v1      https://quickdrop-b.onrender.com/api/v1
-    headers:{'Content-Type':'application/json'},
-    withCredentials:true
-})
+const envApiBase = import.meta.env.VITE_API_URL || '';
+const envSocketBase = import.meta.env.VITE_SOCKET_URL;
+const socketFallback = envSocketBase
+  ? `${envSocketBase.replace(/\/+$/, "")}/api/v1`
+  : null;
+const defaultBase =
+  import.meta.env.DEV
+    ? "http://localhost:4000/api/v1"
+    : typeof window !== "undefined" && window.location?.origin
+      ? `${window.location.origin}/api/v1`
+      : "http://localhost:4000/api/v1";
+
+const baseURL = (envApiBase || socketFallback || defaultBase).replace(/\/+$/, "");
+
+const api = axios.create({
+  baseURL,
+  headers: { "Content-Type": "application/json" },
+  withCredentials: true,
+});
 
 // api.interceptors.response.use(
 //     (response)=>response,

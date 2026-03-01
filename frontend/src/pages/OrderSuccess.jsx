@@ -4,7 +4,7 @@ import Navbar from '../component/Layout/Navbar';
 import Footer from '../component/Layout/Footer';
 import { orderService } from '../services/orderService';
 import toast from 'react-hot-toast';
-import { io } from 'socket.io-client';
+import { createSocket } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
 import { useLocationContext } from '../context/LocationContext';
 
@@ -47,11 +47,7 @@ const OrderSuccess = () => {
         const userId = user?.id || user?._id;
         if (!userId || !orderId) return;
 
-        const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000';
-        const socket = io(socketUrl, {
-            withCredentials: true,
-            transports: ['websocket'],
-        });
+        const socket = createSocket();
         socketRef.current = socket;
         socket.on('connect', () => {
             socket.emit('userOnline', userId);

@@ -5,7 +5,7 @@ import { orderService } from '../services/orderService';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ConfirmationModal from '../component/UI/ConfirmationModal';
-import { io } from 'socket.io-client';
+import { createSocket } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
 
 const MyOrders = () => {
@@ -35,11 +35,7 @@ const MyOrders = () => {
     const userId = user?.id || user?._id;
     if (!userId) return;
 
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000';
-    const socket = io(socketUrl, {
-      withCredentials: true,
-      transports: ['websocket'],
-    });
+    const socket = createSocket();
     socketRef.current = socket;
 
     socket.on('connect', () => {
