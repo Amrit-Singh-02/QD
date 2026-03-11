@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
+import Navbar from '../component/Layout/Navbar';
 import toast from "react-hot-toast";
-import Navbar from "../component/Layout/Navbar";
 import { orderService } from "../services/orderService";
 
 const CATEGORIES = [
@@ -27,6 +27,8 @@ const HelpDesk = () => {
   const [category, setCategory] = useState("");
   const [message, setMessage] = useState("");
   const [orderId, setOrderId] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
   const fetchTickets = async () => {
     try {
@@ -42,6 +44,17 @@ const HelpDesk = () => {
   useEffect(() => {
     fetchTickets();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [tickets.length]);
+
+  const totalPages = Math.max(1, Math.ceil(tickets.length / pageSize));
+  const pagedTickets = tickets.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,7 +93,7 @@ const HelpDesk = () => {
         </p>
 
         {/* Helpline */}
-        <div className="bg-gradient-to-r from-blinkit-green to-emerald-600 rounded-2xl p-5 mb-6 text-white">
+        <div className="bg-gradient-to-r from-blinkit-green to-blinkit-green rounded-2xl p-5 mb-6 text-white">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,7 +193,7 @@ const HelpDesk = () => {
             </p>
           ) : (
             <div className="space-y-3">
-              {tickets.map((ticket) => {
+              {pagedTickets.map((ticket) => {
                 const ticketId = ticket?.id || ticket?._id;
                 return (
                   <div
@@ -225,6 +238,32 @@ const HelpDesk = () => {
               })}
             </div>
           )}
+
+          {tickets.length > 0 && totalPages > 1 && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-blinkit-gray">
+                Page {page} of {totalPages} · {tickets.length} tickets
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
@@ -232,3 +271,8 @@ const HelpDesk = () => {
 };
 
 export default HelpDesk;
+
+
+
+
+

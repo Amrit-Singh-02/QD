@@ -12,6 +12,13 @@ import {
   releaseAgentLock,
 } from "../../services/orderAssignment.service.js";
 import {
+  getAvailableStock,
+  getInventoryLockExpiry,
+  releaseReservedInventory,
+  reserveInventoryForItems,
+  rollbackInventoryReservations,
+} from "../../services/inventory.service.js";
+import {
   capturePayPalOrder,
   createPayPalOrder,
   getPayPalClientId,
@@ -19,6 +26,7 @@ import {
   getPayPalUsdRate,
   convertInrToUsd,
 } from "../../services/paypal.service.js";
+import stripe from "../../config/stripe.config.js";
 import {
   assertValidTransition,
   ORDER_STATUSES,
@@ -94,7 +102,7 @@ const buildOrderDraftFromCart = async ({
     }
 
     const quantity = cartItem.quantity;
-    if (product.stocks < quantity) {
+    if (getAvailableStock(product) < quantity) {
       throw new CustomError(
         400,
         `Insufficient stock for ${product.name}`,
@@ -149,16 +157,27 @@ export const createOrderFromCart = expressAsyncHandler(
         locationCoords,
       });
 
-    const order = await OrderModel.create({
-      user: userId,
-      items,
-      shippingAddress,
-      paymentMethod: normalizedPayment,
-      notes,
-      subtotal,
-      totalQuantity,
-      totalAmount,
-    });
+    const reservedItems = await reserveInventoryForItems(items);
+    const lockNow = new Date();
+    const lockExpiresAt = getInventoryLockExpiry();
+    let order;
+    try {
+      order = await OrderModel.create({
+        user: userId,
+        items,
+        shippingAddress,
+        paymentMethod: normalizedPayment,
+        notes,
+        subtotal,
+        totalQuantity,
+        totalAmount,
+        inventoryLockedAt: lockNow,
+        inventoryLockExpiresAt: lockExpiresAt,
+      });
+    } catch (err) {
+      await rollbackInventoryReservations(reservedItems);
+      throw err;
+    }
 
     if (!order) return next(new CustomError(400, "Order creation failed"));
 
@@ -239,6 +258,8 @@ export const cancelMyOrder = expressAsyncHandler(async (req, res, next) => {
   const order = await OrderModel.findOne({ _id: id, user: userId });
   if (!order) return next(new CustomError(404, "Order not found"));
 
+  const previousStatus = order.orderStatus;
+
   if (
     order.orderStatus === ORDER_STATUSES.CANCELLED ||
     order.orderStatus === ORDER_STATUSES.NO_AGENT_AVAILABLE
@@ -266,8 +287,16 @@ export const cancelMyOrder = expressAsyncHandler(async (req, res, next) => {
     order.cancelledByAgent = assignedAgentId;
   }
   order.assignedAgent = null;
-  const isLegacy = typeof order.inventoryAdjusted === "undefined";
-  const shouldRestock = order.inventoryAdjusted === true || isLegacy;
+  if (order.inventoryLockedAt) {
+    await releaseReservedInventory(order, {
+      reason: "cancelled",
+      save: false,
+    });
+  }
+  const isLegacy = !order.inventoryLockedAt &&
+    typeof order.inventoryAdjusted === "undefined";
+  const shouldRestock =
+    !order.inventoryLockedAt && (order.inventoryAdjusted === true || isLegacy);
   if (shouldRestock) {
     order.inventoryAdjusted = false;
   }
@@ -289,7 +318,7 @@ export const cancelMyOrder = expressAsyncHandler(async (req, res, next) => {
   await clearOrderTimer(order._id, req.app);
 
   // release agent lock if order was being assigned
-  if (order.orderStatus === ORDER_STATUSES.ASSIGNING) {
+  if (previousStatus === ORDER_STATUSES.ASSIGNING) {
     const attempts = order.assignmentAttempts || [];
     if (attempts.length > 0) {
       await releaseAgentLock(attempts[attempts.length - 1].toString(), req.app);
@@ -379,20 +408,31 @@ export const createPaypalOrderFromCart = expressAsyncHandler(
         locationCoords,
       });
 
-    const order = await OrderModel.create({
-      user: userId,
-      items,
-      shippingAddress,
-      paymentMethod: "paypal",
-      paymentStatus: "pending",
-      paymentDetails: {
-        provider: "paypal",
-      },
-      notes,
-      subtotal,
-      totalQuantity,
-      totalAmount,
-    });
+    const reservedItems = await reserveInventoryForItems(items);
+    const lockNow = new Date();
+    const lockExpiresAt = getInventoryLockExpiry();
+    let order;
+    try {
+      order = await OrderModel.create({
+        user: userId,
+        items,
+        shippingAddress,
+        paymentMethod: "paypal",
+        paymentStatus: "pending",
+        paymentDetails: {
+          provider: "paypal",
+        },
+        notes,
+        subtotal,
+        totalQuantity,
+        totalAmount,
+        inventoryLockedAt: lockNow,
+        inventoryLockExpiresAt: lockExpiresAt,
+      });
+    } catch (err) {
+      await rollbackInventoryReservations(reservedItems);
+      throw err;
+    }
 
     if (!order) return next(new CustomError(400, "Order creation failed"));
 
@@ -427,6 +467,7 @@ export const createPaypalOrderFromCart = expressAsyncHandler(
         paypalOrderId: paypalOrder.id,
       }).send(res);
     } catch (error) {
+      await rollbackInventoryReservations(reservedItems);
       await OrderModel.findByIdAndDelete(order._id);
       throw error;
     }
@@ -560,5 +601,156 @@ export const capturePaypalOrderPayment = expressAsyncHandler(
     }
 
     new ApiResponse(200, "Payment captured successfully", responseOrder).send(res);
+  },
+);
+
+export const createStripeOrderFromCart = expressAsyncHandler(
+  async (req, res, next) => {
+    const userId = req.myUser?.id;
+    if (!userId) return next(new CustomError(401, "Unauthorized"));
+
+    const { addressId, notes, locationCoords } = req.body;
+
+    const { items, shippingAddress, subtotal, totalQuantity, totalAmount } =
+      await buildOrderDraftFromCart({
+        userId,
+        addressId,
+        locationCoords,
+      });
+
+    const reservedItems = await reserveInventoryForItems(items);
+    const lockNow = new Date();
+    const lockExpiresAt = getInventoryLockExpiry();
+    let order;
+    try {
+      order = await OrderModel.create({
+        user: userId,
+        items,
+        shippingAddress,
+        paymentMethod: "card",
+        paymentStatus: "pending",
+        paymentDetails: {
+          provider: "stripe",
+        },
+        notes,
+        subtotal,
+        totalQuantity,
+        totalAmount,
+        inventoryLockedAt: lockNow,
+        inventoryLockExpiresAt: lockExpiresAt,
+      });
+    } catch (err) {
+      await rollbackInventoryReservations(reservedItems);
+      throw err;
+    }
+
+    if (!order) return next(new CustomError(400, "Order creation failed"));
+
+    try {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(Number(totalAmount) * 100),
+        currency: "inr",
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          orderId: order._id.toString(),
+          userId: userId.toString(),
+        },
+      });
+
+      order.paymentDetails = {
+        ...(order.paymentDetails || {}),
+        provider: "stripe",
+        intentId: paymentIntent.id,
+        status: paymentIntent.status,
+        amountOriginal: totalAmount,
+        currencyOriginal: "INR",
+        amountCharged: totalAmount,
+        currencyCharged: "INR",
+      };
+      await order.save();
+
+      new ApiResponse(201, "Stripe payment intent created", {
+        orderId: order._id,
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      }).send(res);
+    } catch (error) {
+      await rollbackInventoryReservations(reservedItems);
+      await OrderModel.findByIdAndDelete(order._id);
+      throw error;
+    }
+  },
+);
+
+export const confirmStripePayment = expressAsyncHandler(
+  async (req, res, next) => {
+    const userId = req.myUser?.id;
+    if (!userId) return next(new CustomError(401, "Unauthorized"));
+
+    const { orderId, paymentIntentId } = req.body;
+    if (!orderId || !paymentIntentId) {
+      return next(new CustomError(400, "Order id and payment intent id are required"));
+    }
+
+    const order = await OrderModel.findOne({ _id: orderId, user: userId });
+    if (!order) return next(new CustomError(404, "Order not found"));
+
+    if (order.paymentMethod !== "card") {
+      return next(new CustomError(400, "Order is not a card payment"));
+    }
+
+    const currentPaymentStatus = String(order.paymentStatus || "").toLowerCase();
+    if (["successful", "paid"].includes(currentPaymentStatus)) {
+      return new ApiResponse(200, "Payment already confirmed", order).send(res);
+    }
+
+    const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (!intent) return next(new CustomError(400, "Stripe payment intent not found"));
+
+    if (intent.metadata?.orderId && intent.metadata.orderId !== String(order._id)) {
+      return next(new CustomError(400, "Stripe order reference mismatch"));
+    }
+
+    const expectedAmount = Math.round(Number(order.totalAmount) * 100);
+    if (Number(intent.amount) !== expectedAmount) {
+      return next(new CustomError(400, "Stripe amount mismatch"));
+    }
+
+    if (intent.currency && intent.currency.toLowerCase() !== "inr") {
+      return next(new CustomError(400, "Stripe currency mismatch"));
+    }
+
+    if (intent.status !== "succeeded") {
+      order.paymentStatus = "failed";
+      order.paymentDetails = {
+        ...(order.paymentDetails || {}),
+        provider: "stripe",
+        intentId: intent.id,
+        status: intent.status,
+      };
+      await order.save();
+      return next(new CustomError(400, "Stripe payment not completed"));
+    }
+
+    const chargeId = intent.charges?.data?.[0]?.id || null;
+    order.paymentStatus = "successful";
+    order.paymentDetails = {
+      ...(order.paymentDetails || {}),
+      provider: "stripe",
+      intentId: intent.id,
+      chargeId,
+      status: intent.status,
+    };
+    await order.save();
+
+    await CartModel.deleteMany({ userId });
+
+    let responseOrder = order;
+    if (order.orderStatus === ORDER_STATUSES.PLACED) {
+      await assignDeliveryAgent(order._id.toString(), req.app);
+      responseOrder = await OrderModel.findById(order._id);
+    }
+
+    new ApiResponse(200, "Stripe payment confirmed", responseOrder).send(res);
   },
 );

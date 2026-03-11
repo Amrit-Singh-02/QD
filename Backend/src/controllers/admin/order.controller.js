@@ -10,6 +10,11 @@ import {
   normalizeOrderStatus,
   ORDER_STATUSES,
 } from "../../utils/orderStatus.util.js";
+import {
+  consumeReservedInventory,
+  releaseReservedInventory,
+} from "../../services/inventory.service.js";
+import { recordAuditLog } from "../../services/auditLog.service.js";
 
 export const getAllOrders = expressAsyncHandler(async (req, res, next) => {
   const {
@@ -141,34 +146,60 @@ export const updateOrderStatus = expressAsyncHandler(
 
     if (!order) return next(new CustomError(404, "Order not found"));
 
-    const normalizedStatus = normalizeOrderStatus(orderStatus);
+    const beforeSnapshot = order.toObject();
+
+    const normalizedStatus = orderStatus ? normalizeOrderStatus(orderStatus) : null;
+
+    if (orderStatus) {
+      assertValidTransition(order.orderStatus, normalizedStatus);
+    }
+
     if (normalizedStatus === ORDER_STATUSES.DELIVERED) {
-      const isLegacy = typeof order.inventoryAdjusted === "undefined";
-      if (order.inventoryAdjusted === false) {
-        const bulkOps = order.items.map((item) => ({
-          updateOne: {
-            filter: { _id: item.product },
-            update: { $inc: { stocks: -item.quantity } },
-          },
-        }));
+      await consumeReservedInventory(order, { save: false });
+    }
 
-        if (bulkOps.length > 0) {
-          await ProductModel.bulkWrite(bulkOps);
+    if (normalizedStatus === ORDER_STATUSES.CANCELLED) {
+      if (order.inventoryLockedAt) {
+        await releaseReservedInventory(order, {
+          reason: "admin_cancelled",
+          save: false,
+        });
+      } else {
+        const isLegacy = typeof order.inventoryAdjusted === "undefined";
+        const shouldRestock = order.inventoryAdjusted === true || isLegacy;
+        if (shouldRestock) {
+          const bulkOps = order.items.map((item) => ({
+            updateOne: {
+              filter: { _id: item.product },
+              update: { $inc: { stocks: item.quantity } },
+            },
+          }));
+
+          if (bulkOps.length > 0) {
+            await ProductModel.bulkWrite(bulkOps);
+          }
+
+          order.inventoryAdjusted = false;
         }
-
-        order.inventoryAdjusted = true;
-      } else if (isLegacy) {
-        // Legacy orders already adjusted at creation; mark as adjusted.
-        order.inventoryAdjusted = true;
       }
     }
 
     if (orderStatus) {
-      assertValidTransition(order.orderStatus, normalizedStatus);
       order.orderStatus = normalizedStatus;
     }
     if (paymentStatus) order.paymentStatus = paymentStatus;
     await order.save();
+
+    await recordAuditLog({
+      actorId: req.myUser?.id,
+      action: "order.update",
+      entityType: "Order",
+      entityId: order._id,
+      before: beforeSnapshot,
+      after: order,
+      meta: { orderStatus: orderStatus || null, paymentStatus: paymentStatus || null },
+      req,
+    });
 
     new ApiResponse(200, "Order updated successfully", order).send(res);
   },

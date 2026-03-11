@@ -23,7 +23,7 @@ const loadGuestCart = () => {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed;
+    return parsed.filter((item) => Number(item?.quantity) > 0);
   } catch (error) {
     return [];
   }
@@ -32,7 +32,10 @@ const loadGuestCart = () => {
 const saveGuestCart = (items) => {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    const cleaned = Array.isArray(items)
+      ? items.filter((item) => Number(item?.quantity) > 0)
+      : [];
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
   } catch (error) {
     // Ignore storage errors
   }
@@ -54,6 +57,11 @@ export const CartProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth(); // Assuming AuthContext provides user info
 
+  const sanitizeCart = (items) => {
+    if (!Array.isArray(items)) return [];
+    return items.filter((item) => Number(item?.quantity) > 0);
+  };
+
   const fetchCart = async () => {
     if (!user) {
       const guestCart = loadGuestCart();
@@ -63,7 +71,7 @@ export const CartProvider = ({ children }) => {
     setLoading(true);
     try {
       const data = await getCartService();
-      setCart(data.payload || []);
+      setCart(sanitizeCart(data.payload || []));
     } catch (error) {
       console.error("Failed to fetch cart:", error);
       const message =
@@ -109,7 +117,7 @@ export const CartProvider = ({ children }) => {
             quantity,
           });
         }
-        setCart(next);
+        setCart(sanitizeCart(next));
         saveGuestCart(next);
         toast.success("Item added to cart!");
       } catch (error) {
@@ -138,7 +146,7 @@ export const CartProvider = ({ children }) => {
             : item,
         )
         .filter((item) => item.quantity > 0);
-      setCart(next);
+      setCart(sanitizeCart(next));
       saveGuestCart(next);
       return;
     }

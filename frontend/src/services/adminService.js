@@ -23,6 +23,28 @@ export const adminService = {
     return response.data;
   },
 
+  addCategory: async (payload) => {
+    const isFormData =
+      typeof FormData !== "undefined" && payload instanceof FormData;
+    const response = await api.post("/admin/category/add", payload, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+    });
+    return response.data;
+  },
+
+  updateCategory: async (id, payload) => {
+    const isFormData =
+      typeof FormData !== "undefined" && payload instanceof FormData;
+    const response = await api.patch(`/admin/category/${id}`, payload, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+    });
+    return response.data;
+  },
+  deleteCategory: async (id) => {
+    const response = await api.delete(`/admin/category/${id}`);
+    return response.data;
+  },
+
   getSubCategories: async (categoryId) => {
     const response = await api.get("/admin/subcategory/all", {
       params: categoryId ? { categoryId } : {},
@@ -82,6 +104,16 @@ export const adminService = {
   },
   updateHelpTicket: async (id, data) => {
     const response = await api.patch(`/admin/help-tickets/${id}`, data);
+    return response.data;
+  },
+  getAuditLogs: async (params = {}) => {
+    const response = await api.get("/admin/audit-logs/all", { params });
+    return response.data;
+  },
+  getAuditLogCount: async (params = {}) => {
+    const response = await api.get("/admin/audit-logs/all", {
+      params: { ...params, page: 1, limit: 1 },
+    });
     return response.data;
   },
 };

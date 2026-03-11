@@ -1,8 +1,8 @@
 import { useState } from "react";
+import Navbar from '../component/Layout/Navbar';
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import Navbar from "../component/Layout/Navbar";
-import Footer from "../component/Layout/Footer";
+import AdminSidebar from "../component/Layout/AdminSidebar";
 import { useAuth } from "../context/AuthContext";
 import { adminService } from "../services/adminService";
 
@@ -128,8 +128,9 @@ const AdminCreateDeliveryAgent = () => {
   return (
     <div className="min-h-screen bg-blinkit-bg flex flex-col">
       <Navbar />
-
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
+      <div className="flex flex-1">
+      <AdminSidebar />
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 pb-20 lg:pb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-blinkit-dark">
@@ -381,10 +382,15 @@ const AdminCreateDeliveryAgent = () => {
           </form>
         )}
       </main>
-
-      <Footer />
+      </div>
     </div>
   );
 };
 
 export default AdminCreateDeliveryAgent;
+
+
+
+
+
+

@@ -6,6 +6,7 @@ import userRoutes from "./src/routes/user/user.routes.js";
 import { errorMiddleware } from "./src/middlewares/error.middleware.js";
 import cookieParser from "cookie-parser";
 import productRoutes from "./src/routes/shop/product.route.js";
+import shopCategoryRoutes from "./src/routes/shop/category.route.js";
 import adminRoutes from "./src/routes/admin/product.route.js";
 import adminCategoryRoutes from "./src/routes/admin/category.route.js";
 import adminSubCategoryRoutes from "./src/routes/admin/subCategory.route.js";
@@ -21,7 +22,9 @@ import reviewRoutes from "./src/routes/user/review.route.js";
 import helpTicketRoutes from "./src/routes/user/helpTicket.route.js";
 import adminHelpTicketRoutes from "./src/routes/admin/helpTicket.route.js";
 import adminDashboardRoutes from "./src/routes/admin/dashboard.route.js";
+import adminAuditLogRoutes from "./src/routes/admin/auditLog.route.js";
 import otpRoutes from "./src/routes/otp.routes.js";
+import paymentRoutes from "./src/routes/user/payment.route.js";
 
 const app = express();
 app.use(
@@ -30,6 +33,8 @@ app.use(
     credentials: true,
   })
 );
+
+app.use("/api/v1/payment", paymentRoutes);
 
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
@@ -41,6 +46,7 @@ app.use("/api/v1/admin/subcategory", adminSubCategoryRoutes);
 app.use("/api/v1/admin/delivery-agent", adminDeliveryAgentRoutes);
 app.use("/api/v1/admin/user", adminUserRoutes);
 app.use("/api/v1/shop/product",productRoutes);
+app.use("/api/v1/shop/category", shopCategoryRoutes);
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/auth", otpRoutes);
 app.use("/api/v1/user/address", addressRoutes);
@@ -49,6 +55,7 @@ app.use("/api/v1/user/order", orderRoutes)
 app.use("/api/v1/admin/order", adminOrderRoutes)
 app.use("/api/v1/admin/help-tickets", adminHelpTicketRoutes);
 app.use("/api/v1/admin/dashboard", adminDashboardRoutes);
+app.use("/api/v1/admin/audit-logs", adminAuditLogRoutes);
 app.use("/api/v1/user/review", reviewRoutes);
 app.use("/api/v1/user/help", helpTicketRoutes);
 app.use("/api/v1/delivery", deliveryRoutes);

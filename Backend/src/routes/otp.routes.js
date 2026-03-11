@@ -6,8 +6,11 @@ import { sendOTP, verifyOTP } from "../utils/twilio.js";
 import ApiResponse from "../utils/ApiResponse.util.js";
 import CustomError from "../utils/customError.util.js";
 import { generateToken } from "../utils/jwt.util.js";
+import { rateLimit } from "../middlewares/rateLimit.middleware.js";
+import { rateLimitConfig } from "../config/rateLimit.config.js";
 
 const router = express.Router();
+const otpLimiter = rateLimit(rateLimitConfig.otp);
 
 const normalizePhone = (input = "") => {
   const raw = String(input).trim();
@@ -48,6 +51,7 @@ const buildUserPayload = ({ dbPhone, name, email, password }) => {
 
 router.post(
   "/send-otp",
+  otpLimiter,
   expressAsyncHandler(async (req, res, next) => {
     const { phone } = req.body;
 
@@ -67,6 +71,7 @@ router.post(
 
 router.post(
   "/verify-otp",
+  otpLimiter,
   expressAsyncHandler(async (req, res, next) => {
     const { phone, code, name, email, password } = req.body;
 

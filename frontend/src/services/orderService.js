@@ -36,6 +36,14 @@ export const orderService = {
     const response = await api.post("/user/order/paypal/capture", data);
     return response.data;
   },
+  createStripeOrder: async (data) => {
+    const response = await api.post("/user/order/stripe/create", data);
+    return response.data;
+  },
+  confirmStripePayment: async (data) => {
+    const response = await api.post("/user/order/stripe/confirm", data);
+    return response.data;
+  },
   submitReview: async (data) => {
     const response = await api.post("/user/review/create", data);
     return response.data;

@@ -7,7 +7,9 @@ export const validate = (schema) => {
     });
 
     if (error) {
-      next(new CustomError(400, `${error.details.map((ele) => ele.message)}`));
+      return next(
+        new CustomError(400, `${error.details.map((ele) => ele.message)}`),
+      );
     }
     req.body = value;
     next();

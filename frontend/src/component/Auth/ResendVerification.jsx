@@ -102,7 +102,7 @@ const ResendVerification = () => {
           <div className="space-y-3">
             <Link
               to="/login"
-              className="block w-full py-3 text-center border-2 border-blinkit-green text-blinkit-green font-bold rounded-xl hover:bg-blinkit-green-light transition-colors"
+              className="block w-full py-3 text-center border-2 border-blinkit-green text-blinkit-green font-bold rounded-xl hover:bg-blinkit-green-light hover:text-white transition-colors"
             >
               Back to Login
             </Link>

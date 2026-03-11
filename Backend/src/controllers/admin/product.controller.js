@@ -10,6 +10,7 @@ import {
   addProductValidator,
   updateProductValidator,
 } from "../../validators/product.validator.js";
+import { recordAuditLog } from "../../services/auditLog.service.js";
 
 export const getURL = (bufferValue, mimetype) => {
   const b64 = bufferValue.toString("base64");
@@ -74,6 +75,15 @@ export const addProduct = expressAsyncHandler(async (req, res, next) => {
     return next(new CustomError(404, "Cannot add product"));
   }
 
+  await recordAuditLog({
+    actorId: req.myUser?.id,
+    action: "product.create",
+    entityType: "Product",
+    entityId: newProduct._id,
+    after: newProduct,
+    req,
+  });
+
   new ApiResponse(201, "Product Added Successfully", newProduct).send(res);
 });
 
@@ -99,6 +109,11 @@ export const updateProduct = expressAsyncHandler(async (req, res, next) => {
       : [updateData.subCategory];
   }
 
+  const existingProduct = await ProductModel.findById(id).lean();
+  if (!existingProduct) {
+    return next(new CustomError(404, "No product found to update"));
+  }
+
   const updateProduct = await ProductModel.findByIdAndUpdate(
     id,
     { $set: updateData },
@@ -107,8 +122,16 @@ export const updateProduct = expressAsyncHandler(async (req, res, next) => {
       runValidators: true,
     },
   );
-  if (!updateProduct)
-    return next(new CustomError(404, "No product found to update"));
+
+  await recordAuditLog({
+    actorId: req.myUser?.id,
+    action: "product.update",
+    entityType: "Product",
+    entityId: id,
+    before: existingProduct,
+    after: updateProduct,
+    req,
+  });
   new ApiResponse(200, "Product updated Successfully", updateProduct).send(res);
 });
 
@@ -118,6 +141,14 @@ export const deleteProduct = expressAsyncHandler(async (req, res, next) => {
     new: true,
   });
   if (!deletedProduct) return next(new CustomError(404, "No product found"));
+  await recordAuditLog({
+    actorId: req.myUser?.id,
+    action: "product.delete",
+    entityType: "Product",
+    entityId: id,
+    before: deletedProduct,
+    req,
+  });
   new ApiResponse(200, "Product deleted successfully", deletedProduct).send(
     res
   );

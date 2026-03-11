@@ -10,12 +10,15 @@ const MyAddresses = () => {
   const [loading, setLoading] = useState(true);
   const [isAddingMode, setIsAddingMode] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [stateSuggestions, setStateSuggestions] = useState([]);
   const [cityLookupError, setCityLookupError] = useState('');
   const [stateLookupError, setStateLookupError] = useState('');
   const [cityLookupLoading, setCityLookupLoading] = useState(false);
   const [stateLookupLoading, setStateLookupLoading] = useState(false);
+  const expandFooter = () => window.dispatchEvent(new CustomEvent("footer:expand"));
 
   const initialFormState = {
     fullName: '',
@@ -35,6 +38,17 @@ const MyAddresses = () => {
   useEffect(() => {
     fetchAddresses();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [addresses.length]);
+
+  const totalPages = Math.max(1, Math.ceil(addresses.length / pageSize));
+  const pagedAddresses = addresses.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   useEffect(() => {
     if (!isAddingMode) return;
@@ -183,16 +197,25 @@ const MyAddresses = () => {
       <Navbar />
       
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
           <h1 className="text-2xl font-bold text-blinkit-dark">My Addresses</h1>
-          {!isAddingMode && (
-            <button 
-              onClick={() => setIsAddingMode(true)}
-              className="bg-blinkit-green text-white font-bold py-2 px-4 rounded-lg hover:bg-blinkit-green-dark transition-colors shadow-sm text-sm"
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={expandFooter}
+              className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray transition-colors"
             >
-              + Add New Address
+              Expand Footer
             </button>
-          )}
+            {!isAddingMode && (
+              <button 
+                onClick={() => setIsAddingMode(true)}
+                className="bg-blinkit-green text-white font-bold py-2 px-4 rounded-lg hover:bg-blinkit-green-dark transition-colors shadow-sm text-sm"
+              >
+                + Add New Address
+              </button>
+            )}
+          </div>
         </div>
 
         {isAddingMode && (
@@ -371,7 +394,7 @@ const MyAddresses = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {addresses.map((addr) => (
+            {pagedAddresses.map((addr) => (
               <div key={addr._id} className="bg-white rounded-xl shadow-sm border border-blinkit-border p-5 relative group hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-2">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide
@@ -409,6 +432,32 @@ const MyAddresses = () => {
             ))}
           </div>
         )}
+
+        {addresses.length > 0 && totalPages > 1 && (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-blinkit-gray">
+              Page {page} of {totalPages} · {addresses.length} addresses
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       <Footer />
@@ -417,3 +466,8 @@ const MyAddresses = () => {
 };
 
 export default MyAddresses;
+
+
+
+
+

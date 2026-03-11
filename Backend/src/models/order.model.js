@@ -94,9 +94,17 @@ const paymentDetailsSchema = new mongoose.Schema(
   {
     provider: {
       type: String,
-      enum: ["paypal"],
+      enum: ["paypal", "stripe"],
     },
     orderId: {
+      type: String,
+      trim: true,
+    },
+    intentId: {
+      type: String,
+      trim: true,
+    },
+    chargeId: {
       type: String,
       trim: true,
     },
@@ -209,6 +217,22 @@ const orderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    inventoryLockedAt: {
+      type: Date,
+      default: null,
+    },
+    inventoryLockExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    inventoryReleasedAt: {
+      type: Date,
+      default: null,
+    },
+    inventoryReleaseReason: {
+      type: String,
+      default: null,
+    },
     subtotal: {
       type: Number,
       required: true,
@@ -256,6 +280,7 @@ orderSchema.index({ orderStatus: 1, createdAt: -1 });
 orderSchema.index({ orderStatus: 1, updatedAt: -1 });
 orderSchema.index({ assignedAgent: 1, orderStatus: 1 });
 orderSchema.index({ "shippingAddress.postalCode": 1 });
+orderSchema.index({ inventoryLockExpiresAt: 1, orderStatus: 1 });
 
 const OrderModel = mongoose.model("Order", orderSchema);
 

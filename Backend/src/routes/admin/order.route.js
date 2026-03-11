@@ -7,6 +7,8 @@ import {
   authenticate,
   authorizeRoles,
 } from "../../middlewares/auth.middleware.js";
+import { validate } from "../../middlewares/validate.middleware.js";
+import { updateOrderStatusSchema } from "../../validators/order.validator.js";
 
 const adminOrderRouter = Router();
 
@@ -15,6 +17,7 @@ adminOrderRouter.patch(
   "/:id/status",
   authenticate,
   authorizeRoles("admin"),
+  validate(updateOrderStatusSchema),
   updateOrderStatus,
 );
 

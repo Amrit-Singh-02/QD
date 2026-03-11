@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import Navbar from '../component/Layout/Navbar';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { adminService } from '../services/adminService';
-import Navbar from '../component/Layout/Navbar';
 import Footer from '../component/Layout/Footer';
 import toast from 'react-hot-toast';
 
 const MyProfile = () => {
-  const { user, checkAuth } = useAuth();
+  const { user, checkAuth, resend } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -28,6 +28,16 @@ const MyProfile = () => {
   const [agentForm, setAgentForm] = useState(null);
   const [agentUpdating, setAgentUpdating] = useState(false);
   const isAdmin = user?.role === 'admin';
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [resending, setResending] = useState(false);
+  const expandFooter = () => window.dispatchEvent(new CustomEvent("footer:expand"));
+
+  useEffect(() => {
+    if (resendCountdown > 0) {
+      const timer = setTimeout(() => setResendCountdown((prev) => prev - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCountdown]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -175,12 +185,40 @@ const MyProfile = () => {
     }
   };
 
+  const handleResendVerification = async () => {
+    if (!user?.email) {
+      toast.error('Email not found.');
+      return;
+    }
+    if (resendCountdown > 0) return;
+    try {
+      setResending(true);
+      const result = await resend(user.email);
+      if (result?.success) {
+        setResendCountdown(60);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to send verification email');
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-blinkit-bg flex flex-col">
       <Navbar />
       
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
-        <h1 className="text-2xl font-bold text-blinkit-dark mb-6">My Profile</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-blinkit-dark">My Profile</h1>
+          <button
+            type="button"
+            onClick={expandFooter}
+            className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray transition-colors"
+          >
+            Expand Footer
+          </button>
+        </div>
         
         <div className="grid gap-6 md:grid-cols-2">
           {/* Profile Details Card */}
@@ -234,6 +272,25 @@ const MyProfile = () => {
                     <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mt-1 ${user?.isVerified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {user?.isVerified ? 'VERIFIED' : 'NOT VERIFIED'}
                     </span>
+                    {!user?.isVerified && (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={handleResendVerification}
+                          disabled={resending || resendCountdown > 0}
+                          className="px-3 py-1.5 rounded-lg bg-blinkit-green text-white text-xs font-semibold hover:bg-blinkit-green-dark disabled:opacity-60"
+                        >
+                          {resending
+                            ? 'Sending...'
+                            : resendCountdown > 0
+                            ? `Resend in ${resendCountdown}s`
+                            : 'Send Verification Email'}
+                        </button>
+                        <p className="text-[11px] text-blinkit-gray mt-1">
+                          We will send a verification link to your email.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -680,3 +737,8 @@ const MyProfile = () => {
 };
 
 export default MyProfile;
+
+
+
+
+

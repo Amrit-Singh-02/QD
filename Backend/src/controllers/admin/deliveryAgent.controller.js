@@ -5,6 +5,7 @@ import OrderModel from "../../models/order.model.js";
 import ApiResponse from "../../utils/ApiResponse.util.js";
 import CustomError from "../../utils/customError.util.js";
 import { uploadImage } from "../../utils/cloudinary.util.js";
+import { recordAuditLog } from "../../services/auditLog.service.js";
 
 const getURL = (bufferValue, mimetype) => {
   const b64 = bufferValue.toString("base64");
@@ -87,6 +88,15 @@ export const createDeliveryAgent = expressAsyncHandler(
       deliveryAreas: normalizedAreas,
       ...(profilePayload ? { profileImage: profilePayload } : {}),
       createdByAdmin: req.myUser.id,
+    });
+
+    await recordAuditLog({
+      actorId: req.myUser?.id,
+      action: "delivery_agent.create",
+      entityType: "DeliveryAgent",
+      entityId: newDeliveryAgent?._id,
+      after: newDeliveryAgent,
+      req,
     });
 
     new ApiResponse(
@@ -209,6 +219,11 @@ export const updateDeliveryAgent = expressAsyncHandler(
       };
     }
 
+    const existingAgent = await DeliveryAgentModel.findById(id).lean();
+    if (!existingAgent) {
+      return next(new CustomError(404, "Delivery agent not found"));
+    }
+
     const updated = await DeliveryAgentModel.findByIdAndUpdate(id, update, {
       new: true,
       runValidators: true,
@@ -217,6 +232,16 @@ export const updateDeliveryAgent = expressAsyncHandler(
     if (!updated) {
       return next(new CustomError(404, "Delivery agent not found"));
     }
+
+    await recordAuditLog({
+      actorId: req.myUser?.id,
+      action: "delivery_agent.update",
+      entityType: "DeliveryAgent",
+      entityId: id,
+      before: existingAgent,
+      after: updated,
+      req,
+    });
 
     new ApiResponse(200, "Delivery agent updated successfully", updated).send(
       res,
@@ -233,6 +258,15 @@ export const deleteDeliveryAgent = expressAsyncHandler(
     if (!deleted) {
       return next(new CustomError(404, "Delivery agent not found"));
     }
+
+    await recordAuditLog({
+      actorId: req.myUser?.id,
+      action: "delivery_agent.delete",
+      entityType: "DeliveryAgent",
+      entityId: id,
+      before: deleted,
+      req,
+    });
 
     new ApiResponse(200, "Delivery agent deleted successfully", deleted).send(
       res,

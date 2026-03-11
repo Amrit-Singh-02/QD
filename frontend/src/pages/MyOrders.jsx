@@ -1,282 +1,154 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Navbar from '../component/Layout/Navbar';
+import { Link } from 'react-router-dom';
 import Footer from '../component/Layout/Footer';
 import { orderService } from '../services/orderService';
-import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import ConfirmationModal from '../component/UI/ConfirmationModal';
-import { createSocket } from '../services/socket';
-import { useAuth } from '../context/AuthContext';
+
+const statusColors = {
+  PLACED: 'bg-blue-100 text-blue-700',
+  ACCEPTED: 'bg-amber-100 text-amber-700',
+  PACKED: 'bg-purple-100 text-purple-700',
+  OUT_FOR_DELIVERY: 'bg-cyan-100 text-cyan-700',
+  DELIVERED: 'bg-green-100 text-green-700',
+  CANCELLED: 'bg-red-100 text-red-700',
+};
 
 const MyOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const { user } = useAuth();
-  const socketRef = useRef(null);
-
-  const STATUSES = {
-    PLACED: "PLACED",
-    ASSIGNING: "ASSIGNING",
-    ACCEPTED: "ACCEPTED",
-    PICKED_UP: "PICKED_UP",
-    OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
-    DELIVERED: "DELIVERED",
-    CANCELLED: "CANCELLED",
-    NO_AGENT_AVAILABLE: "NO_AGENT_AVAILABLE",
-  };
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
+  const expandFooter = () => window.dispatchEvent(new CustomEvent("footer:expand"));
 
   useEffect(() => {
-    fetchOrders();
+    const fetch = async () => {
+      try {
+        const r = await orderService.getMyOrders();
+        setOrders(r?.payload || []);
+      } catch { toast.error('Failed to load orders'); }
+      finally { setLoading(false); }
+    };
+    fetch();
   }, []);
 
   useEffect(() => {
-    const userId = user?.id || user?._id;
-    if (!userId) return;
+    setPage(1);
+  }, [orders.length]);
 
-    const socket = createSocket();
-    socketRef.current = socket;
+  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize));
+  const pagedOrders = orders.slice((page - 1) * pageSize, page * pageSize);
 
-    socket.on('connect', () => {
-      socket.emit('userOnline', userId);
-    });
-
-    const handleStatusUpdate = (payload, fallbackStatus) => {
-      const { orderId, status } = payload || {};
-      const nextStatus = status || fallbackStatus;
-      if (!orderId || !nextStatus) return;
-      setOrders((prev) =>
-        prev.map((order) => {
-          const id = order?.id || order?._id;
-          if (String(id) !== String(orderId)) return order;
-          return {
-            ...order,
-            orderStatus: nextStatus,
-          };
-        }),
-      );
-    };
-
-    const handlePaymentUpdate = (payload) => {
-      const { orderId, paymentStatus } = payload || {};
-      if (!orderId || !paymentStatus) return;
-      setOrders((prev) =>
-        prev.map((order) => {
-          const id = order?.id || order?._id;
-          if (String(id) !== String(orderId)) return order;
-          return {
-            ...order,
-            paymentStatus,
-          };
-        }),
-      );
-    };
-
-    const handleAgentCancel = (payload) => {
-      const { orderId, status, message } = payload || {};
-      if (!orderId) return;
-      const nextStatus = status || STATUSES.ASSIGNING;
-      setOrders((prev) =>
-        prev.map((order) => {
-          const id = order?.id || order?._id;
-          if (String(id) !== String(orderId)) return order;
-          return {
-            ...order,
-            orderStatus: nextStatus,
-            assignedAgent: null,
-          };
-        }),
-      );
-      toast.error(message || 'Your delivery agent cancelled. Reassigning...');
-    };
-
-    socket.on('orderAccepted', (payload) => handleStatusUpdate(payload, STATUSES.ACCEPTED));
-    socket.on('orderPickedUp', (payload) => handleStatusUpdate(payload, STATUSES.PICKED_UP));
-    socket.on('orderOutForDelivery', (payload) => handleStatusUpdate(payload, STATUSES.OUT_FOR_DELIVERY));
-    socket.on('orderDelivered', (payload) => handleStatusUpdate(payload, STATUSES.DELIVERED));
-    socket.on('paymentAccepted', handlePaymentUpdate);
-    socket.on('orderCancelledByAgent', handleAgentCancel);
-    socket.on('noAgentAvailable', (payload) => {
-      handleStatusUpdate(payload, STATUSES.NO_AGENT_AVAILABLE);
-      toast.error('No delivery agent is available right now.');
-    });
-
-    return () => {
-      socket.off('orderAccepted');
-      socket.off('orderPickedUp');
-      socket.off('orderOutForDelivery');
-      socket.off('orderDelivered');
-      socket.off('paymentAccepted', handlePaymentUpdate);
-      socket.off('orderCancelledByAgent', handleAgentCancel);
-      socket.off('noAgentAvailable');
-      socket.disconnect();
-    };
-  }, [user]);
-
-  const fetchOrders = async () => {
-    try {
-      const response = await orderService.getMyOrders();
-      setOrders(response.payload || []);
-    } catch (error) {
-      toast.error('Failed to fetch orders');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const initiateCancelOrder = (orderId) => {
-    setSelectedOrderId(orderId);
-    setIsModalOpen(true);
-  };
-
-  const handleConfirmCancel = async () => {
-    if (!selectedOrderId) return;
-    
-    try {
-      const response = await orderService.cancelOrder(selectedOrderId);
-      const updatedOrder = response?.payload;
-      setOrders((prev) =>
-        prev.map((order) => {
-          const orderId = order?.id || order?._id;
-          if (orderId !== selectedOrderId) return order;
-          return {
-            ...order,
-            ...updatedOrder,
-            orderStatus: updatedOrder?.orderStatus || STATUSES.CANCELLED,
-          };
-        }),
-      );
-      toast.success('Order cancelled successfully');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to cancel order');
-    } finally {
-      setIsModalOpen(false);
-      setSelectedOrderId(null);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case STATUSES.PLACED: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case STATUSES.ASSIGNING: return 'bg-blue-100 text-blue-800 border-blue-200';
-      case STATUSES.ACCEPTED: return 'bg-purple-100 text-purple-800 border-purple-200';
-      case STATUSES.PICKED_UP: return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case STATUSES.OUT_FOR_DELIVERY: return 'bg-purple-100 text-purple-800 border-purple-200';
-      case STATUSES.DELIVERED: return 'bg-green-100 text-green-800 border-green-200';
-      case STATUSES.CANCELLED: return 'bg-red-100 text-red-800 border-red-200';
-      case STATUSES.NO_AGENT_AVAILABLE: return 'bg-orange-100 text-orange-800 border-orange-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const formatStatus = (status) => {
-    if (!status) return 'unknown';
-    return status.replace(/_/g, ' ').toLowerCase();
-  };
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   return (
     <div className="min-h-screen bg-blinkit-bg flex flex-col">
       <Navbar />
-      
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
-        <h1 className="text-2xl font-bold text-blinkit-dark mb-6">My Orders</h1>
-        
+      <div className="flex-1 max-w-4xl mx-auto w-full p-4 md:p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-blinkit-dark">My Orders</h1>
+          <button
+            type="button"
+            onClick={expandFooter}
+            className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray transition-colors"
+          >
+            Expand Footer
+          </button>
+        </div>
+
         {loading ? (
-          <div className="text-center py-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blinkit-green mx-auto"></div>
+          <div className="space-y-4">
+            {[1,2,3].map((i) => (
+              <div key={i} className="bg-white rounded-2xl border border-blinkit-border p-5 shimmer h-32" />
+            ))}
           </div>
         ) : orders.length === 0 ? (
-          <div className="bg-white rounded-xl p-10 text-center shadow-sm border border-blinkit-border">
-            <span className="text-6xl block mb-4">🛍️</span>
-            <h2 className="text-xl font-bold text-blinkit-dark mb-2">No orders yet</h2>
-            <p className="text-blinkit-gray mb-6">Looks like you haven't made your first order yet.</p>
-            <Link to="/" className="bg-blinkit-green text-white font-bold py-2 px-6 rounded-lg hover:bg-blinkit-green-dark transition-colors inline-block">
-              Start Shopping
+          <div className="bg-white rounded-2xl border border-blinkit-border p-12 text-center">
+            <span className="text-5xl mb-4 block">📦</span>
+            <h3 className="text-lg font-bold text-blinkit-dark mb-2">No orders yet</h3>
+            <p className="text-sm text-blinkit-gray mb-6">Start shopping to see your orders here</p>
+            <Link to="/" className="px-6 py-2.5 bg-blinkit-green text-white font-semibold rounded-xl text-sm hover:bg-blinkit-green-dark transition-colors">
+              Shop Now
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
-            {Array.isArray(orders) && orders.map((order, index) => {
-               if(!order) return null;
-               const orderId = order?.id || order?._id;
-               const status = (order?.orderStatus || '').toUpperCase();
-               return (
-              <div key={orderId || index} className="bg-white rounded-xl shadow-sm border border-blinkit-border overflow-hidden">
-                <div className="p-4 border-b border-blinkit-border flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50">
-                  <div>
-                    <p className="text-xs text-blinkit-gray">ORDER ID</p>
-                    <p className="font-mono font-medium text-sm">#{orderId?.slice(-6).toUpperCase() || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-blinkit-gray">DATE</p>
-                    <p className="font-medium text-sm">{order?.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-blinkit-gray">TOTAL AMOUNT</p>
-                    <p className="font-bold text-sm">₹{order?.totalAmount || 0}</p>
-                  </div>
-                  <div>
-                   <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(status)} uppercase tracking-wide`}>
-                      {formatStatus(status)}
-                    </span>
-                  </div>
-                  <div>
-                      <Link 
-                        to={`/order/${orderId}`}
-                        className="text-blinkit-green font-bold text-sm hover:underline"
-                      >
-                          View Details
-                      </Link>
-                  </div>
-                </div>
-                
-                <div className="p-4">
-                  <div className="space-y-3">
-                    {order?.items?.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between">
-                         <div className="flex items-center gap-3"> 
-                            <div className="w-10 h-10 bg-blinkit-light-gray rounded-lg flex items-center justify-center text-lg">
-                               📦
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-blinkit-dark">{item?.name || 'Item'}</p>
-                                <p className="text-xs text-blinkit-gray">Qty: {item?.quantity || 0}</p>
-                            </div>
-                         </div>
-                         <p className="text-sm font-medium">₹{(item?.price || 0) * (item?.quantity || 0)}</p>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {[STATUSES.PLACED, STATUSES.ASSIGNING, STATUSES.ACCEPTED].includes(status) && (
-                    <div className="mt-6 border-t border-blinkit-border pt-4 flex justify-end">
-                      <button 
-                        onClick={() => initiateCancelOrder(orderId)}
-                        className="text-red-600 text-sm font-bold hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-red-200"
-                      >
-                        Cancel Order
-                      </button>
+            {pagedOrders.map((order) => {
+              const oid = order._id || order.id;
+              const status = order.status || 'PLACED';
+              const date = order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+              const itemCount = order.items?.length || 0;
+              const firstImage = order.items?.[0]?.productId?.images?.[0]?.url;
+
+              return (
+                <div key={oid} className="bg-white rounded-2xl border border-blinkit-border p-4 sm:p-5 card-hover">
+                  <div className="flex items-start gap-4">
+                    <div className="w-16 h-16 bg-blinkit-light-gray rounded-xl flex items-center justify-center shrink-0 overflow-hidden border border-blinkit-border">
+                      {firstImage ? <img src={firstImage} alt="" className="w-full h-full object-contain p-1" /> : <span className="text-2xl">📦</span>}
                     </div>
-                  )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-xs text-blinkit-gray font-mono">#{oid?.slice(-8)?.toUpperCase()}</p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase ${statusColors[status] || 'bg-gray-100 text-gray-700'}`}>
+                          {status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-blinkit-dark">{itemCount} item{itemCount !== 1 ? 's' : ''}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center gap-3 text-xs text-blinkit-gray">
+                          <span>{date}</span>
+                          <span className="font-bold text-blinkit-dark">₹{order.totalAmount || order.total || 0}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Link to={`/order/${oid}`} className="px-3 py-1.5 text-xs font-semibold bg-blinkit-green text-white rounded-lg hover:bg-blinkit-green-dark transition-colors">
+                            View
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )})}
+              );
+            })}
           </div>
         )}
-      </main>
 
+        {orders.length > 0 && totalPages > 1 && (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-blinkit-gray">
+              Page {page} of {totalPages} · {orders.length} orders
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       <Footer />
-
-      <ConfirmationModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onConfirm={handleConfirmCancel}
-        title="Cancel Order"
-        message="Do you want to cancel this order or not?"
-      />
     </div>
   );
 };
 
 export default MyOrders;
+
+
+
+
+

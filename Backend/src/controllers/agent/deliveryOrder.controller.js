@@ -7,6 +7,7 @@ import {
   assertValidTransition,
   ORDER_STATUSES,
 } from "../../utils/orderStatus.util.js";
+import { consumeReservedInventory } from "../../services/inventory.service.js";
 import { getActiveUserSocket } from "../../services/presence.service.js";
 import {
   releaseAgentLock,
@@ -143,6 +144,8 @@ export const markDelivered = expressAsyncHandler(async (req, res, next) => {
 
   assertValidTransition(order.orderStatus, ORDER_STATUSES.DELIVERED);
   order.orderStatus = ORDER_STATUSES.DELIVERED;
+  await consumeReservedInventory(order, { save: false });
+
   await order.save();
 
   const agent = req.myDeliveryAgent;

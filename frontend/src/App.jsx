@@ -24,6 +24,9 @@ import DeliveryDashboard from './pages/DeliveryDashboard';
 import HelpDesk from './pages/HelpDesk';
 import AdminHelpTickets from './pages/AdminHelpTickets';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminCategories from './pages/AdminCategories';
+import AdminAgents from './pages/AdminAgents';
+import AdminAuditLogs from './pages/AdminAuditLogs';
 import { useAuth } from './context/AuthContext';
 
 const DeliveryGate = ({ children }) => {
@@ -76,8 +79,11 @@ function App() {
           <Route path="/admin/products" element={<AdminProducts/>} />
           <Route path="/admin/dashboard" element={<AdminDashboard/>} />
           <Route path="/admin/products/new" element={<AdminAddProduct/>} />
+          <Route path="/admin/categories" element={<AdminCategories/>} />
+          <Route path="/admin/agents" element={<AdminAgents/>} />
           <Route path="/admin/orders" element={<AdminOrders/>} />
           <Route path="/admin/help-tickets" element={<AdminHelpTickets/>} />
+          <Route path="/admin/audit-logs" element={<AdminAuditLogs/>} />
           <Route path="/admin/delivery-agent/new" element={<AdminCreateDeliveryAgent/>} />
           <Route path="/delivery/dashboard" element={<DeliveryDashboard/>} />
           

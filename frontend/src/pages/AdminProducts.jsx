@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
+import Navbar from '../component/Layout/Navbar';
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import Navbar from "../component/Layout/Navbar";
-import Footer from "../component/Layout/Footer";
+import AdminSidebar from "../component/Layout/AdminSidebar";
 import { adminService } from "../services/adminService";
 import { useAuth } from "../context/AuthContext";
 import ConfirmationModal from "../component/UI/ConfirmationModal";
@@ -12,6 +12,8 @@ const AdminProducts = () => {
   const [products, setProducts] = useState([]);
   const [query, setQuery] = useState("");
   const [fetching, setFetching] = useState(true);
+  const [page, setPage] = useState(1);
+  const pageSize = 9;
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -31,6 +33,7 @@ const AdminProducts = () => {
       setFetching(true);
       const response = await adminService.getProducts();
       setProducts(response.payload || []);
+      setPage(1);
     } catch (error) {
       if (error.response?.status === 404) {
         setProducts([]);
@@ -135,11 +138,26 @@ const AdminProducts = () => {
     });
   }, [products, query]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pagedProducts = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   return (
     <div className="min-h-screen bg-blinkit-bg flex flex-col">
       <Navbar />
-
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8">
+      <div className="flex flex-1">
+      <AdminSidebar />
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 pb-20 lg:pb-8">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-blinkit-dark">Admin: Products</h1>
@@ -218,7 +236,7 @@ const AdminProducts = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filtered.map((product) => {
+                {pagedProducts.map((product) => {
                   const imageUrl =
                     product?.images && product.images.length > 0
                       ? product.images[0].url
@@ -275,12 +293,36 @@ const AdminProducts = () => {
                 })}
               </div>
             )}
+
+            {filtered.length > 0 && totalPages > 1 && (
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-blinkit-gray">
+                  Page {page} of {totalPages} · {filtered.length} products
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="px-3 py-1.5 rounded-lg border border-blinkit-border text-sm font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
-
-      <Footer />
-
+      </div>
       <ConfirmationModal
         isOpen={isDeleteOpen}
         onClose={() => {
@@ -418,3 +460,9 @@ const AdminProducts = () => {
 };
 
 export default AdminProducts;
+
+
+
+
+
+

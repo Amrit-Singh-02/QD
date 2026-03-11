@@ -17,6 +17,9 @@ import DeliveryAgentModel from "./src/models/deliveryAgent.model.js";
 import OrderModel from "./src/models/order.model.js";
 import { ORDER_STATUSES } from "./src/utils/orderStatus.util.js";
 import { client } from "./src/config/redis.config.js";
+import { releaseReservedInventory } from "./src/services/inventory.service.js";
+import { recordAuditLog } from "./src/services/auditLog.service.js";
+import { sendWebhook } from "./src/services/webhook.service.js";
 import {
   getActiveAgentSocket,
   getActiveUserSocket,
@@ -57,6 +60,10 @@ const LOCATION_FLUSH_BATCH = Number(process.env.LOCATION_FLUSH_BATCH || 100);
 const LOCATION_EMIT_THROTTLE_MS = Number(
   process.env.LOCATION_EMIT_THROTTLE_MS || 1000,
 );
+const INVENTORY_REAPER_INTERVAL_MS = Number(
+  process.env.INVENTORY_REAPER_INTERVAL_MS || 30000,
+);
+const ORDER_EXPIRED_WEBHOOK_URL = process.env.ORDER_EXPIRED_WEBHOOK_URL || "";
 const AGENT_LOC_KEY_PREFIX = "agentLoc:";
 const USER_LOC_KEY_PREFIX = "userLoc:";
 const AGENT_LOC_DIRTY_SET = "dirty:agentLoc";
@@ -412,12 +419,92 @@ const startLocationFlushPoller = (appRef) => {
   setInterval(poll, LOCATION_FLUSH_INTERVAL_MS);
 };
 
+const startInventoryLockReaper = (appRef) => {
+  const poll = async () => {
+    try {
+      const now = new Date();
+      const candidates = await OrderModel.find({
+        inventoryLockedAt: { $exists: true },
+        inventoryLockExpiresAt: { $exists: true, $ne: null, $lte: now },
+        inventoryReleasedAt: { $exists: false },
+        inventoryAdjusted: { $ne: true },
+        orderStatus: {
+          $in: [
+            ORDER_STATUSES.PLACED,
+            ORDER_STATUSES.ASSIGNING,
+            ORDER_STATUSES.NO_AGENT_AVAILABLE,
+          ],
+        },
+      }).limit(50);
+
+      for (const order of candidates) {
+        try {
+          await releaseReservedInventory(order, { reason: "expired", save: false });
+          if (order.orderStatus === ORDER_STATUSES.ASSIGNING) {
+            const attempts = order.assignmentAttempts || [];
+            if (attempts.length > 0) {
+              const lastAgentId = attempts[attempts.length - 1];
+              await releaseAgentLock(lastAgentId.toString(), appRef);
+            }
+          }
+          order.orderStatus = ORDER_STATUSES.CANCELLED;
+          order.assignedAgent = null;
+          order.inventoryLockExpiresAt = null;
+          await order.save();
+
+          await clearOrderTimer(order._id, appRef);
+
+          await recordAuditLog({
+            actorRole: "system",
+            action: "order.expired",
+            entityType: "Order",
+            entityId: order._id,
+            after: order,
+            meta: { reason: "inventory_lock_expired" },
+          });
+
+          await sendWebhook(ORDER_EXPIRED_WEBHOOK_URL, {
+            event: "order.expired",
+            orderId: order._id,
+            userId: order.user,
+            status: order.orderStatus,
+            expiredAt: new Date().toISOString(),
+          });
+
+          const userSocketId = await getActiveUserSocket(
+            appRef,
+            order.user?.toString(),
+          );
+          if (userSocketId) {
+            const io = appRef.get("io");
+            io?.to(userSocketId).emit("orderExpired", {
+              orderId: order._id,
+              status: order.orderStatus,
+            });
+          }
+        } catch (err) {
+          console.error(
+            `Failed to release inventory for order ${order?._id}:`,
+            err,
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Inventory lock reaper failed:", err);
+    }
+  };
+
+  poll();
+  setInterval(poll, INVENTORY_REAPER_INTERVAL_MS);
+};
+
 if (redis) {
   startOrderTimerPoller(app);
   startLocationFlushPoller(app);
 } else {
   startLocationFlushPoller(app);
 }
+startInventoryLockReaper(app);
 
 io.on("connection", (socket) => {
   socket.on("agentOnline", async (agentId) => {

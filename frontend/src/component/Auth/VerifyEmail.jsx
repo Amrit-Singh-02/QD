@@ -74,8 +74,8 @@ const VerifyEmail = () => {
           {/* LOADING */}
           {status === 'loading' && (
             <>
-              <div className="w-20 h-20 bg-blinkit-green-light rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="animate-spin w-10 h-10 text-blinkit-green" viewBox="0 0 24 24" fill="none">
+              <div className="w-20 h-20 bg-blinkit-green rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="animate-spin w-10 h-10 text-white" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
@@ -90,8 +90,8 @@ const VerifyEmail = () => {
           {/* SUCCESS */}
           {status === 'success' && successMessage && (
             <>
-              <div className="w-20 h-20 bg-blinkit-green-light rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-blinkit-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-20 h-20 bg-blinkit-green rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
@@ -100,8 +100,8 @@ const VerifyEmail = () => {
               </h2>
               <p className="text-blinkit-gray mb-4">{successMessage}</p>
 
-              <div className="bg-blinkit-green-light rounded-xl p-4 mb-6">
-                <p className="text-blinkit-green font-semibold text-sm">
+              <div className="bg-blinkit-green rounded-xl p-4 mb-6">
+                <p className="text-white font-semibold text-sm">
                   Redirecting to login in {countdown} second{countdown !== 1 && 's'}...
                 </p>
               </div>

@@ -265,7 +265,7 @@ const Registration = () => {
           {/* Login link */}
           <Link
             to="/login"
-            className="block w-full py-3.5 text-center border-2 border-blinkit-green text-blinkit-green font-bold rounded-xl hover:bg-blinkit-green-light transition-colors"
+            className="block w-full py-3.5 text-center border-2 border-blinkit-green text-blinkit-green font-bold rounded-xl hover:bg-blinkit-green-light hover:text-white transition-colors"
           >
             Sign In Instead
           </Link>

@@ -337,6 +337,7 @@ export const acceptOrder = async (orderId, agentId, app) => {
   assertValidTransition(order.orderStatus, ORDER_STATUSES.ACCEPTED);
   order.orderStatus = ORDER_STATUSES.ACCEPTED;
   order.assignedAgent = agent._id;
+  order.inventoryLockExpiresAt = null;
   await order.save();
 
   agent.isAvailable = false;

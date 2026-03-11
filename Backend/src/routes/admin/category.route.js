@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   addCategory,
+  deleteCategory,
   getCategories,
   updateCategory,
 } from "../../controllers/admin/category.controller.js";
@@ -26,6 +27,12 @@ router.patch(
   authorizeRoles("admin"),
   upload.single("image"),
   updateCategory,
+);
+router.delete(
+  "/:id",
+  authenticate,
+  authorizeRoles("admin"),
+  deleteCategory,
 );
 
 export default router;

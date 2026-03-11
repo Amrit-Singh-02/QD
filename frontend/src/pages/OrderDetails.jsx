@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
 import Navbar from '../component/Layout/Navbar';
+import { useParams, Link } from 'react-router-dom';
 import Footer from '../component/Layout/Footer';
 import { orderService } from '../services/orderService';
 import toast from 'react-hot-toast';
@@ -320,6 +320,10 @@ const OrderDetails = () => {
         socket.on('orderDelivered', (payload) => handleStatusUpdate(payload, STATUSES.DELIVERED));
         socket.on('paymentAccepted', handlePaymentUpdate);
         socket.on('orderCancelledByAgent', handleAgentCancel);
+        socket.on('orderExpired', (payload) => {
+            handleStatusUpdate(payload, STATUSES.CANCELLED);
+            toast.error('Order expired due to inventory timeout. Please place the order again.');
+        });
         socket.on('routeUpdate', handleRouteUpdate);
         socket.on('userMessage', handleAgentReply);
         socket.on('noAgentAvailable', (payload) => {
@@ -335,6 +339,7 @@ const OrderDetails = () => {
             socket.off('orderDelivered');
             socket.off('paymentAccepted', handlePaymentUpdate);
             socket.off('orderCancelledByAgent', handleAgentCancel);
+            socket.off('orderExpired');
             socket.off('routeUpdate', handleRouteUpdate);
             socket.off('userMessage', handleAgentReply);
             socket.off('noAgentAvailable');
@@ -433,7 +438,7 @@ const OrderDetails = () => {
     if (loading) {
         return (
             <div className="min-h-screen bg-blinkit-bg flex flex-col">
-                <Navbar />
+              <Navbar />
                 <div className="flex-1 flex items-center justify-center">
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blinkit-green"></div>
                 </div>
@@ -445,7 +450,7 @@ const OrderDetails = () => {
     if (!order) {
         return (
             <div className="min-h-screen bg-blinkit-bg flex flex-col">
-                <Navbar />
+              <Navbar />
                 <div className="flex-1 flex flex-col items-center justify-center p-4">
                     <h2 className="text-xl font-bold text-blinkit-dark mb-4">Order not found</h2>
                     <Link to="/orders" className="text-blinkit-green hover:underline">Back to My Orders</Link>
@@ -492,7 +497,7 @@ const OrderDetails = () => {
 
     return (
         <div className="min-h-screen bg-blinkit-bg flex flex-col">
-            <Navbar />
+          <Navbar />
             <div className="flex-1 max-w-4xl mx-auto w-full p-4 md:p-6">
                 <div className="flex items-center gap-2 mb-6">
                     <Link to="/orders" className="text-blinkit-gray hover:text-blinkit-dark">
@@ -556,6 +561,16 @@ const OrderDetails = () => {
                                             </div>
                                         );
                                     })}
+                                </div>
+                            )}
+
+                            {[STATUSES.PLACED, STATUSES.ASSIGNING].includes(orderStatus) && (
+                                <div className="mt-4 flex items-center gap-3 rounded-xl bg-blinkit-green text-white px-4 py-3">
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-semibold">Finding a delivery agent...</span>
+                                        <span className="text-xs text-white/80">We will update you as soon as someone accepts.</span>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -941,3 +956,8 @@ const OrderDetails = () => {
 };
 
 export default OrderDetails;
+
+
+
+
+

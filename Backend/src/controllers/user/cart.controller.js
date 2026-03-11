@@ -3,6 +3,7 @@ import ApiResponse from "../../utils/ApiResponse.util.js";
 import CustomError from "../../utils/customError.util.js";
 import CartModel from "../../models/cart.model.js";
 import ProductModel from "../../models/product.model.js";
+import { getAvailableStock } from "../../services/inventory.service.js";
 
 export const addToCartItemController = expressAsyncHandler(
   async (req, res, next) => {
@@ -15,14 +16,14 @@ export const addToCartItemController = expressAsyncHandler(
 
     const product = await ProductModel.findById(productId);
     if (!product) return next(new CustomError(404, "Product not found"));
-    if (product.stocks < qty) {
+    if (getAvailableStock(product) < qty) {
       return next(new CustomError(400, "Insufficient stock"));
     }
 
     let existingItem = await CartModel.findOne({ userId, productId });
     if (existingItem) {
       const newQty = existingItem.quantity + qty;
-      if (product.stocks < newQty) {
+      if (getAvailableStock(product) < newQty) {
         return next(new CustomError(400, "Insufficient stock"));
       }
       existingItem.quantity = newQty;
@@ -95,7 +96,7 @@ export const updateCartItemQtyController = expressAsyncHandler(
 
     const product = await ProductModel.findById(cartItem.productId);
     if (!product) return next(new CustomError(404, "Product not found"));
-    if (product.stocks < qty) {
+    if (getAvailableStock(product) < qty) {
       return next(new CustomError(400, "Insufficient stock"));
     }
 

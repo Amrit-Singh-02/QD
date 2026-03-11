@@ -34,11 +34,12 @@ const withId = (product) => {
   };
 };
 
-export const fetchProducts = expressAsyncHandler(async (req, res) => {
+export const fetchProducts = expressAsyncHandler(async (req, res, next) => {
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 12, 1), 50);
   const query = (req.query.q || "").trim();
   const keywordsParam = (req.query.keywords || "").trim();
+  const categoryId = (req.query.categoryId || "").trim();
   const quick = (req.query.quick || "all").trim();
   const sort = (req.query.sort || "featured").trim();
 
@@ -59,6 +60,13 @@ export const fetchProducts = expressAsyncHandler(async (req, res) => {
         { description: { $regex: queryRegex } },
       ],
     });
+  }
+
+  if (categoryId) {
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return next(new CustomError(400, "Invalid category id"));
+    }
+    andFilters.push({ category: categoryId });
   }
 
   if (quick === "deals") {
