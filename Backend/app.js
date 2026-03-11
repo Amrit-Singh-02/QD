@@ -29,7 +29,7 @@ import paymentRoutes from "./src/routes/user/payment.route.js";
 const app = express();
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174", "https://quick-drop-fast.netlify.app"],
+    origin: ["http://localhost:5173", "http://localhost:5174", "https://quick-drop-fast.netlify.app", "https://qd-f.onrender.com/"],
     credentials: true,
   })
 );
