@@ -57,6 +57,257 @@ const getDiscount = (product) => {
 
 const pageSize = 10;
 
+const getProductId = (product) => product?.id || product?._id || product?.sku || product?.name;
+
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const hashString = (value = '') => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+
+const getStableNumber = (seed, min, max) => {
+  const base = hashString(String(seed));
+  return min + (base % (max - min + 1));
+};
+
+const getLiveMeta = (product) => {
+  const id = getProductId(product) || 'item';
+  const stockValue = toNumber(product?.stocks ?? product?.stock ?? product?.inventory ?? product?.quantity);
+  let stockLabel = 'Stock: High';
+  let stockTone = 'bg-green-50 text-green-700 border-green-200';
+
+  if (Number.isFinite(stockValue)) {
+    if (stockValue <= 0) {
+      stockLabel = 'Restocking';
+      stockTone = 'bg-red-50 text-red-700 border-red-200';
+    } else if (stockValue <= 6) {
+      stockLabel = 'Stock: Low';
+      stockTone = 'bg-amber-50 text-amber-700 border-amber-200';
+    } else if (stockValue <= 18) {
+      stockLabel = 'Stock: Medium';
+      stockTone = 'bg-yellow-50 text-yellow-700 border-yellow-200';
+    }
+  } else {
+    const seed = getStableNumber(id, 1, 100);
+    if (seed <= 35) {
+      stockLabel = 'Stock: Low';
+      stockTone = 'bg-amber-50 text-amber-700 border-amber-200';
+    } else if (seed <= 70) {
+      stockLabel = 'Stock: Medium';
+      stockTone = 'bg-yellow-50 text-yellow-700 border-yellow-200';
+    }
+  }
+
+  const timestamp = product?.updatedAt || product?.createdAt || product?.timestamp;
+  let freshnessMins = null;
+  if (timestamp) {
+    const diff = Math.round((Date.now() - new Date(timestamp).getTime()) / 60000);
+    if (Number.isFinite(diff)) {
+      freshnessMins = Math.min(Math.max(diff, 3), 120);
+    }
+  }
+  if (!freshnessMins) {
+    freshnessMins = getStableNumber(`${id}-fresh`, 4, 42);
+  }
+
+  const freshnessLabel = freshnessMins <= 6 ? 'Picked just now' : `Picked ${freshnessMins} mins ago`;
+
+  return { stockLabel, stockTone, freshnessLabel, stockValue };
+};
+
+const getDayContext = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 11) {
+    return { key: 'morning', label: 'Morning rush', subtitle: 'Breakfast-ready bundles trending in your area.' };
+  }
+  if (hour >= 11 && hour < 16) {
+    return { key: 'afternoon', label: 'Midday run', subtitle: 'Quick lunch bundles spiking nearby right now.' };
+  }
+  if (hour >= 16 && hour < 21) {
+    return { key: 'evening', label: 'Evening wind-down', subtitle: 'Chai-time bundles heating up around you.' };
+  }
+  return { key: 'late', label: 'Late-night run', subtitle: 'Snack bundles moving fast in your neighborhood.' };
+};
+
+const bundlePresets = {
+  morning: [
+    {
+      id: 'fresh-start',
+      title: 'Fresh Start',
+      subtitle: 'Fruits, dairy, and quick energy.',
+      tag: 'Morning',
+      tone: 'bg-green-50',
+      border: 'border-green-200',
+      accent: 'text-green-700',
+      keywords: ['banana', 'apple', 'fruit', 'yogurt', 'milk', 'oats', 'bread'],
+    },
+    {
+      id: 'desk-essentials',
+      title: 'Desk Essentials',
+      subtitle: 'Coffee + quick bites for focus.',
+      tag: 'Workday',
+      tone: 'bg-amber-50',
+      border: 'border-amber-200',
+      accent: 'text-amber-700',
+      keywords: ['coffee', 'tea', 'biscuit', 'cookies', 'chocolate', 'nut', 'energy'],
+    },
+    {
+      id: 'hydration-reset',
+      title: 'Hydration Reset',
+      subtitle: 'Water + citrus + light snacks.',
+      tag: 'Refresh',
+      tone: 'bg-blue-50',
+      border: 'border-blue-200',
+      accent: 'text-blue-700',
+      keywords: ['water', 'juice', 'lemon', 'coconut', 'fruit', 'soda'],
+    },
+  ],
+  afternoon: [
+    {
+      id: 'quick-lunch',
+      title: 'Quick Lunch Fix',
+      subtitle: 'Instant comfort in 10 minutes.',
+      tag: 'Lunch',
+      tone: 'bg-yellow-50',
+      border: 'border-yellow-200',
+      accent: 'text-yellow-700',
+      keywords: ['noodle', 'pasta', 'instant', 'sauce', 'bread', 'cheese', 'mayo'],
+    },
+    {
+      id: 'protein-boost',
+      title: 'Protein Boost',
+      subtitle: 'Eggs, dairy, and smart fuel.',
+      tag: 'Fuel',
+      tone: 'bg-green-50',
+      border: 'border-green-200',
+      accent: 'text-green-700',
+      keywords: ['egg', 'paneer', 'milk', 'yogurt', 'protein', 'curd'],
+    },
+    {
+      id: 'midday-snack',
+      title: 'Midday Snack',
+      subtitle: 'Crunch + sip combo.',
+      tag: 'Snack',
+      tone: 'bg-amber-50',
+      border: 'border-amber-200',
+      accent: 'text-amber-700',
+      keywords: ['chips', 'snack', 'cola', 'soda', 'nuts', 'popcorn'],
+    },
+  ],
+  evening: [
+    {
+      id: 'chai-rain',
+      title: 'Chai & Rain Pack',
+      subtitle: 'Cozy up with warm sips.',
+      tag: 'Cozy',
+      tone: 'bg-amber-50',
+      border: 'border-amber-200',
+      accent: 'text-amber-700',
+      keywords: ['tea', 'coffee', 'biscuit', 'rusk', 'ginger', 'sugar', 'milk'],
+    },
+    {
+      id: 'dinner-starter',
+      title: 'Dinner Starter',
+      subtitle: 'Staples for a 20-min meal.',
+      tag: 'Dinner',
+      tone: 'bg-green-50',
+      border: 'border-green-200',
+      accent: 'text-green-700',
+      keywords: ['rice', 'atta', 'oil', 'spice', 'dal', 'masala'],
+    },
+    {
+      id: 'movie-night',
+      title: 'Movie Night Fix',
+      subtitle: 'Snacks + dessert + drink.',
+      tag: 'Fun',
+      tone: 'bg-red-50',
+      border: 'border-red-200',
+      accent: 'text-red-700',
+      keywords: ['popcorn', 'chips', 'ice', 'chocolate', 'cola', 'soda'],
+    },
+  ],
+  late: [
+    {
+      id: 'night-munch',
+      title: 'Night Munch Box',
+      subtitle: 'Late cravings, sorted.',
+      tag: 'Late',
+      tone: 'bg-pink-50',
+      border: 'border-pink-200',
+      accent: 'text-pink-700',
+      keywords: ['noodle', 'chips', 'cookie', 'chocolate', 'ice', 'snack'],
+    },
+    {
+      id: 'instant-comfort',
+      title: 'Instant Comfort',
+      subtitle: 'Hot, fast, and easy.',
+      tag: 'Hot',
+      tone: 'bg-orange-50',
+      border: 'border-orange-200',
+      accent: 'text-orange-700',
+      keywords: ['instant', 'soup', 'noodle', 'pasta', 'ready'],
+    },
+    {
+      id: 'sweet-tooth',
+      title: 'Sweet Tooth',
+      subtitle: 'Desserts and cravings.',
+      tag: 'Sweet',
+      tone: 'bg-amber-50',
+      border: 'border-amber-200',
+      accent: 'text-amber-700',
+      keywords: ['ice', 'cake', 'chocolate', 'dessert', 'sweet'],
+    },
+  ],
+};
+
+const matchesKeywords = (product, keywords = []) => {
+  const haystack = [
+    product?.name,
+    product?.brand,
+    product?.category,
+    product?.subcategory,
+    product?.description,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return keywords.some((keyword) => haystack.includes(keyword));
+};
+
+const pickBundleItems = (items, keywords, size = 3) => {
+  const unique = new Map();
+  const addItem = (item) => {
+    const id = getProductId(item);
+    if (!id || unique.has(id)) return;
+    unique.set(id, item);
+  };
+  items.filter((item) => matchesKeywords(item, keywords)).forEach(addItem);
+  items.forEach((item) => {
+    if (unique.size >= size) return;
+    addItem(item);
+  });
+  return Array.from(unique.values()).slice(0, size);
+};
+
+const buildHyperBundles = (items, dayKey) => {
+  const presets = bundlePresets[dayKey] || bundlePresets.evening;
+  return presets.map((preset) => {
+    const bundleItems = pickBundleItems(items, preset.keywords, 3);
+    const total = bundleItems.reduce((sum, item) => sum + (toNumber(item?.price) || 0), 0);
+    const totalMrp = bundleItems.reduce((sum, item) => sum + (toNumber(item?.mrp ?? item?.price) || 0), 0);
+    const savings = Math.max(0, Math.round(totalMrp - total));
+    return { ...preset, items: bundleItems, total, savings };
+  });
+};
+
 /* --- Shimmer Card --- */
 const ProductCardShimmer = () => (
   <div className="flex flex-col bg-white rounded-2xl border border-blinkit-border p-3">
@@ -73,12 +324,93 @@ const ProductCardShimmer = () => (
   </div>
 );
 
+const BundleCardShimmer = () => (
+  <div className="rounded-2xl border border-blinkit-border bg-white p-3">
+    <div className="h-2.5 w-20 rounded-full bg-blinkit-light-gray shimmer" />
+    <div className="mt-2 h-4 w-36 rounded-full bg-blinkit-light-gray shimmer" />
+    <div className="mt-3 flex flex-wrap gap-2">
+      {Array.from({ length: 3 }).map((_, idx) => (
+        <div key={`bundle-chip-${idx}`} className="h-6 w-20 rounded-full bg-blinkit-light-gray shimmer" />
+      ))}
+    </div>
+    <div className="mt-4 h-8 w-28 rounded-xl bg-blinkit-light-gray shimmer" />
+  </div>
+);
+
+const BundleCard = ({ bundle, onAdd }) => {
+  const itemCount = bundle.items?.length || 0;
+  const totalLabel = bundle.total > 0 ? `\u20B9${Math.round(bundle.total)}` : '\u20B90';
+
+  return (
+    <div className={`relative overflow-hidden rounded-2xl border ${bundle.border} ${bundle.tone} p-3`}>
+      <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-white/60" />
+      <div className="relative">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-blinkit-gray font-semibold">
+              {bundle.tag}
+            </p>
+            <h4 className="text-sm font-bold text-blinkit-dark mt-1">{bundle.title}</h4>
+            <p className="text-[11px] text-blinkit-gray mt-1">{bundle.subtitle}</p>
+          </div>
+          <span className={`px-2 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider ${bundle.border} ${bundle.accent}`}>
+            Right now
+          </span>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {bundle.items.map((item, idx) => (
+            <div
+              key={`${bundle.id}-${getProductId(item) || idx}`}
+              className="flex items-center gap-2 rounded-full border border-white/70 bg-white/70 pr-3"
+            >
+              <img
+                src={item?.images?.[0]?.url || item?.image || 'https://placehold.co/48x48?text=Item'}
+                alt={item?.name || 'Item'}
+                className="w-6 h-6 rounded-full object-cover"
+                loading="lazy"
+                onError={(e) => { e.target.src = 'https://placehold.co/48x48?text=Item'; }}
+              />
+              <span className="text-[11px] font-semibold text-blinkit-dark line-clamp-1 max-w-[120px]">
+                {item?.name || 'Item'}
+              </span>
+            </div>
+          ))}
+          {itemCount === 0 && (
+            <p className="text-[11px] text-blinkit-gray">Curating live picks...</p>
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-blinkit-gray">Bundle total</p>
+            <p className="text-sm font-bold text-blinkit-dark">{totalLabel}</p>
+            {bundle.savings > 0 && (
+              <p className="text-[10px] font-semibold text-green-700">{`Save \u20B9${bundle.savings}`}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => onAdd(bundle.items)}
+            disabled={itemCount === 0}
+            className="px-3 py-2 rounded-xl bg-blinkit-green text-white text-[11px] font-bold uppercase tracking-wider hover:brightness-95 transition-colors disabled:opacity-60"
+          >
+            {itemCount > 0 ? `Add ${itemCount} items` : 'Add bundle'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* --- Product Card --- */
 const ProductCard = ({ product, onAdd, cartQty, isNew }) => {
   const id = product?.id || product?._id;
   const discount = getDiscount(product);
   const imageUrl = product?.images?.[0]?.url || product?.image || 'https://placehold.co/400x400?text=No+Image';
   const weightLabel = product?.weight || product?.unit || product?.size || '1 pack';
+  const liveMeta = getLiveMeta(product);
+  const isOutOfStock = Number.isFinite(liveMeta.stockValue) && liveMeta.stockValue <= 0;
 
   return (
     <Link
@@ -100,9 +432,18 @@ const ProductCard = ({ product, onAdd, cartQty, isNew }) => {
         />
       </div>
 
-      <div className="mt-2 flex items-center gap-1 text-[10px] font-semibold text-blinkit-gray uppercase tracking-wider">
-        <span className="w-1.5 h-1.5 rounded-full bg-blinkit-gray/60" />
-        8 mins
+      <div className="mt-2 flex items-center justify-between text-[10px] font-semibold text-blinkit-gray uppercase tracking-wider">
+        <div className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-blinkit-gray/60" />
+          8 mins
+        </div>
+        <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold ${liveMeta.stockTone}`}>
+          {liveMeta.stockLabel}
+        </span>
+      </div>
+      <div className="mt-1 flex items-center gap-1 text-[10px] text-blinkit-gray">
+        <span className="w-1.5 h-1.5 rounded-full bg-blinkit-green/70 badge-pulse" />
+        {liveMeta.freshnessLabel}
       </div>
 
       <h3 className="text-sm font-semibold text-blinkit-dark mt-1 line-clamp-2 min-h-[36px] leading-tight">
@@ -118,7 +459,11 @@ const ProductCard = ({ product, onAdd, cartQty, isNew }) => {
           )}
         </div>
 
-        {cartQty > 0 ? (
+        {isOutOfStock ? (
+          <span className="px-3 py-1.5 rounded-lg border border-blinkit-border text-blinkit-gray text-[11px] font-bold uppercase">
+            Out of stock
+          </span>
+        ) : cartQty > 0 ? (
           <div
             className="flex items-center bg-blinkit-orange rounded-lg overflow-hidden shadow-sm"
             onClick={(e) => e.preventDefault()}
@@ -167,11 +512,23 @@ const Home = () => {
   const { addToCart, cart } = useCart();
   const location = useLocation();
   const fetchIdRef = useRef(0);
+  const [dayContext, setDayContext] = useState(getDayContext());
+  const bundleUpdateMins = useMemo(
+    () => getStableNumber(`bundle-${dayContext.key}`, 2, 9),
+    [dayContext.key],
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300);
     return () => clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDayContext(getDayContext());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -318,6 +675,19 @@ const Home = () => {
     setSortBy('featured');
   };
 
+  const hyperLocalBundles = useMemo(
+    () => buildHyperBundles(products, dayContext.key),
+    [products, dayContext.key],
+  );
+
+  const isAllCategory = activeCategory === defaultCategory.id;
+
+  const handleAddBundle = useCallback((items = []) => {
+    items.forEach((item) => {
+      if (item) handleAddToCart(item, 1);
+    });
+  }, [handleAddToCart]);
+
   return (
     <div className="min-h-screen bg-blinkit-bg">
       <Navbar />
@@ -414,78 +784,122 @@ const Home = () => {
               </div>
             </div>
 
-            <div className="mt-5">
-              {loading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-                  {Array.from({ length: pageSize }).map((_, i) => (
-                    <ProductCardShimmer key={`shimmer-${i}`} />
-                  ))}
+            <div className="mt-5 space-y-5">
+              {isAllCategory && (
+                <div className="rounded-2xl border border-blinkit-border bg-white p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-blinkit-gray font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-blinkit-green badge-pulse" />
+                        Hyper-local bundles
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-extrabold text-blinkit-dark mt-1">
+                        Right now near you
+                      </h3>
+                      <p className="text-xs text-blinkit-gray mt-1">{dayContext.subtitle}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-blinkit-gray font-semibold">
+                      <span className="px-2 py-1 rounded-full bg-blinkit-light-gray text-blinkit-dark text-[10px] uppercase tracking-wider">
+                        Updated {bundleUpdateMins} mins ago
+                      </span>
+                      <span className="hidden sm:inline-flex px-2 py-1 rounded-full border border-blinkit-border text-[10px] uppercase tracking-wider text-blinkit-gray">
+                        {dayContext.label}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {loading ? (
+                      <>
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <BundleCardShimmer key={`bundle-shimmer-${i}`} />
+                        ))}
+                      </>
+                    ) : (
+                      hyperLocalBundles.map((bundle) => (
+                        <BundleCard
+                          key={bundle.id}
+                          bundle={bundle}
+                          onAdd={handleAddBundle}
+                        />
+                      ))
+                    )}
+                  </div>
                 </div>
-              ) : filteredProducts.length === 0 ? (
-                <div className="rounded-2xl border border-blinkit-border bg-white p-12 text-center">
-                  <span className="text-4xl mb-3 block">No items</span>
-                  <h3 className="text-lg font-bold text-blinkit-dark">No products found</h3>
-                  <p className="text-sm text-blinkit-gray mt-2 mb-6">Try clearing filters or choosing a different category.</p>
-                  <button
-                    onClick={resetFilters}
-                    className="px-6 py-2.5 rounded-xl bg-blinkit-orange text-white font-semibold text-sm hover:brightness-95 transition-colors active:scale-95"
-                  >
-                    Clear Filters
-                  </button>
-                </div>
-              ) : (
-                <>
+              )}
+
+              <div>
+                {loading ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-                    {filteredProducts.map((product, index) => (
-                      <ProductCard
-                        key={product?.id || product?._id}
-                        product={product}
-                        onAdd={handleAddToCart}
-                        cartQty={getCartQty(product)}
-                        isNew={index === 0}
-                      />
+                    {Array.from({ length: pageSize }).map((_, i) => (
+                      <ProductCardShimmer key={`shimmer-${i}`} />
                     ))}
                   </div>
-
-                  {totalCount > 0 && (
-                    <div className="mt-2 flex flex-col items-center gap-2">
-                      <p className="text-xs text-blinkit-gray">{`Viewing ${Math.min(visibleCount, totalCount)} of ${totalCount} items`}</p>
-                      <div className="w-44 h-1.5 bg-blinkit-border rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-blinkit-orange rounded-full transition-all"
-                          style={{ width: `${progressPct}%` }}
+                ) : filteredProducts.length === 0 ? (
+                  <div className="rounded-2xl border border-blinkit-border bg-white p-12 text-center">
+                    <span className="text-4xl mb-3 block">No items</span>
+                    <h3 className="text-lg font-bold text-blinkit-dark">No products found</h3>
+                    <p className="text-sm text-blinkit-gray mt-2 mb-6">Try clearing filters or choosing a different category.</p>
+                    <button
+                      onClick={resetFilters}
+                      className="px-6 py-2.5 rounded-xl bg-blinkit-orange text-white font-semibold text-sm hover:brightness-95 transition-colors active:scale-95"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                      {filteredProducts.map((product, index) => (
+                        <ProductCard
+                          key={product?.id || product?._id}
+                          product={product}
+                          onAdd={handleAddToCart}
+                          cartQty={getCartQty(product)}
+                          isNew={index === 0}
                         />
-                      </div>
+                      ))}
                     </div>
-                  )}
 
-                  {totalPages > 1 && (
-                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-xs text-blinkit-gray">
-                        Page {page} of {totalPages}
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                          disabled={page <= 1 || loading}
-                          className="px-3 py-1.5 rounded-lg border border-blinkit-border text-xs font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
-                        >
-                          Previous
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                          disabled={page >= totalPages || loading}
-                          className="px-3 py-1.5 rounded-lg border border-blinkit-border text-xs font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
-                        >
-                          Next
-                        </button>
+                    {totalCount > 0 && (
+                      <div className="mt-2 flex flex-col items-center gap-2">
+                        <p className="text-xs text-blinkit-gray">{`Viewing ${Math.min(visibleCount, totalCount)} of ${totalCount} items`}</p>
+                        <div className="w-44 h-1.5 bg-blinkit-border rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blinkit-orange rounded-full transition-all"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </>
-              )}
+                    )}
+
+                    {totalPages > 1 && (
+                      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs text-blinkit-gray">
+                          Page {page} of {totalPages}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            disabled={page <= 1 || loading}
+                            className="px-3 py-1.5 rounded-lg border border-blinkit-border text-xs font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+                          >
+                            Previous
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={page >= totalPages || loading}
+                            className="px-3 py-1.5 rounded-lg border border-blinkit-border text-xs font-semibold text-blinkit-dark hover:bg-blinkit-light-gray disabled:opacity-60"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </section>
         </div>

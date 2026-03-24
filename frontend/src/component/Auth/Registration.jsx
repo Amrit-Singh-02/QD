@@ -84,7 +84,7 @@ const Registration = () => {
         </div>
         <div className="relative text-center text-white z-10 animate-fade-in-up">
           <span className="text-[120px] block mb-6 select-none animate-pulse-soft">🛍️</span>
-          <h2 className="text-4xl font-black mb-4">Join blinkit!</h2>
+          <h2 className="text-4xl font-black mb-4">Join QuickDROP!</h2>
           <p className="text-white/80 text-lg max-w-sm mx-auto leading-relaxed">
             Create your account and start shopping for groceries, fresh produce, and essentials right away.
           </p>
@@ -113,10 +113,10 @@ const Registration = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-6 group">
             <div className="w-10 h-10 bg-blinkit-green rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
-              <span className="text-white font-black text-lg">B</span>
+              <span className="text-white font-black text-lg">Q</span>
             </div>
             <h1 className="text-2xl font-extrabold text-blinkit-dark">
-              blink<span className="text-blinkit-green">it</span>
+              Quick<span className="text-blinkit-green">DROP</span>
             </h1>
           </Link>
 

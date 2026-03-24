@@ -185,10 +185,10 @@ const Login = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-8 group">
             <div className="w-10 h-10 bg-blinkit-green rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
-              <span className="text-white font-black text-lg">B</span>
+              <span className="text-white font-black text-lg">Q</span>
             </div>
             <h1 className="text-2xl font-extrabold text-blinkit-dark">
-              blink<span className="text-blinkit-green">it</span>
+              Quick<span className="text-blinkit-green">DROP</span>
             </h1>
           </Link>
 
@@ -443,7 +443,7 @@ const Login = () => {
               <div className="flex items-center gap-4 my-8">
                 <div className="flex-1 h-px bg-blinkit-border" />
                 <span className="text-blinkit-gray text-xs font-medium">
-                  New to blinkit?
+                  New to QuickDROP?
                 </span>
                 <div className="flex-1 h-px bg-blinkit-border" />
               </div>
