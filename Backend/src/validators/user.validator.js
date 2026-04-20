@@ -20,11 +20,42 @@ export const loginSchema=Joi.object({
 export const updateProfileSchema = Joi.object({
   name: Joi.string().max(75).optional(),
   email: Joi.string().min(5).max(50).optional().email(),
+  phone: Joi.string()
+    .length(10)
+    .optional()
+    .pattern(/^[6-9]\d{9}$/)
+    .message("Invalid Mobile Number"),
   contactNumber: Joi.string()
     .length(10)
     .optional()
     .pattern(/^[6-9]\d{9}$/)
     .message("Invalid Mobile Number"),
+});
+
+export const sendPhoneOtpSchema = Joi.object({
+  phone: Joi.string()
+    .length(10)
+    .required()
+    .pattern(/^[6-9]\d{9}$/)
+    .message("Invalid Mobile Number"),
+});
+
+export const verifyPhoneOtpSchema = Joi.object({
+  phone: Joi.string()
+    .length(10)
+    .required()
+    .pattern(/^[6-9]\d{9}$/)
+    .message("Invalid Mobile Number"),
+  code: Joi.string().min(4).max(6).required(),
+});
+
+export const sendEmailOtpSchema = Joi.object({
+  email: Joi.string().required().email(),
+});
+
+export const verifyEmailOtpSchema = Joi.object({
+  email: Joi.string().required().email(),
+  code: Joi.string().min(4).max(6).required(),
 });
 
 export const updatePasswordSchema = Joi.object({

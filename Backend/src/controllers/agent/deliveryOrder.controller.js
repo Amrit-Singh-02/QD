@@ -8,11 +8,13 @@ import {
   ORDER_STATUSES,
 } from "../../utils/orderStatus.util.js";
 import { consumeReservedInventory } from "../../services/inventory.service.js";
-import { getActiveUserSocket } from "../../services/presence.service.js";
+import { getUserRoom } from "../../services/presence.service.js";
 import {
   releaseAgentLock,
   assignDeliveryAgent,
 } from "../../services/orderAssignment.service.js";
+import { learnReorderPatterns } from "../../services/pantryReorder.service.js";
+import { createNotification } from "../../services/notification.service.js";
 
 export const pickupOrder = expressAsyncHandler(async (req, res, next) => {
   const agentId = req.myDeliveryAgent?.id;
@@ -43,11 +45,26 @@ export const pickupOrder = expressAsyncHandler(async (req, res, next) => {
   assertValidTransition(order.orderStatus, ORDER_STATUSES.PICKED_UP);
   order.orderStatus = ORDER_STATUSES.PICKED_UP;
   await order.save();
+  await learnReorderPatterns({ userId: order.user, orderItems: order.items });
+
+  try {
+    const userId = order.user?.toString?.() || order.user;
+    if (userId) {
+      await createNotification(
+        userId,
+        "order_picked_up",
+        "Your order has been picked up.",
+        req.app,
+      );
+    }
+  } catch (err) {
+    console.error("Failed to create notification (picked up):", err);
+  }
 
   const io = req.app.get("io");
-  const userSocketId = await getActiveUserSocket(req.app, order.user?.toString());
-  if (io && userSocketId) {
-    io.to(userSocketId).emit("orderPickedUp", {
+  const userId = order.user?.toString?.() || order.user;
+  if (io && userId) {
+    io.to(getUserRoom(userId)).emit("orderPickedUp", {
       orderId: order._id,
       status: order.orderStatus,
     });
@@ -105,10 +122,24 @@ export const markOutForDelivery = expressAsyncHandler(
     order.orderStatus = ORDER_STATUSES.OUT_FOR_DELIVERY;
     await order.save();
 
+    try {
+      const userId = order.user?.toString?.() || order.user;
+      if (userId) {
+        await createNotification(
+          userId,
+          "order_out_for_delivery",
+          "Your order is out for delivery.",
+          req.app,
+        );
+      }
+    } catch (err) {
+      console.error("Failed to create notification (out for delivery):", err);
+    }
+
     const io = req.app.get("io");
-    const userSocketId = await getActiveUserSocket(req.app, order.user?.toString());
-    if (io && userSocketId) {
-      io.to(userSocketId).emit("orderOutForDelivery", {
+    const userId = order.user?.toString?.() || order.user;
+    if (io && userId) {
+      io.to(getUserRoom(userId)).emit("orderOutForDelivery", {
         orderId: order._id,
         status: order.orderStatus,
       });
@@ -165,10 +196,24 @@ export const markDelivered = expressAsyncHandler(async (req, res, next) => {
 
   await agent.save();
 
+  try {
+    const userId = order.user?.toString?.() || order.user;
+    if (userId) {
+      await createNotification(
+        userId,
+        "order_delivered",
+        "Your order has been delivered.",
+        req.app,
+      );
+    }
+  } catch (err) {
+    console.error("Failed to create notification (delivered):", err);
+  }
+
   const io = req.app.get("io");
-  const userSocketId = await getActiveUserSocket(req.app, order.user?.toString());
-  if (io && userSocketId) {
-    io.to(userSocketId).emit("orderDelivered", {
+  const userId = order.user?.toString?.() || order.user;
+  if (io && userId) {
+    io.to(getUserRoom(userId)).emit("orderDelivered", {
       orderId: order._id,
       status: order.orderStatus,
     });
@@ -215,13 +260,24 @@ export const markPaymentAccepted = expressAsyncHandler(
     order.paymentStatus = "successful";
     await order.save();
 
+    try {
+      const userId = order.user?.toString?.() || order.user;
+      if (userId) {
+        await createNotification(
+          userId,
+          "payment_accepted",
+          "Payment for your order was accepted.",
+          req.app,
+        );
+      }
+    } catch (err) {
+      console.error("Failed to create notification (payment accepted):", err);
+    }
+
     const io = req.app.get("io");
-    const userSocketId = await getActiveUserSocket(
-      req.app,
-      order.user?.toString(),
-    );
-    if (io && userSocketId) {
-      io.to(userSocketId).emit("paymentAccepted", {
+    const userId = order.user?.toString?.() || order.user;
+    if (io && userId) {
+      io.to(getUserRoom(userId)).emit("paymentAccepted", {
         orderId: order._id,
         paymentStatus: order.paymentStatus,
       });
@@ -301,14 +357,24 @@ export const cancelOrderByAgent = expressAsyncHandler(
     }
     await order.save();
 
+    const userId = order.user?._id?.toString?.() || order.user?.toString?.() || order.user;
+    try {
+      if (userId) {
+        await createNotification(
+          userId,
+          "order_cancelled_by_agent",
+          "Your delivery agent cancelled. We are reassigning your order.",
+          req.app,
+        );
+      }
+    } catch (err) {
+      console.error("Failed to create notification (cancelled by agent):", err);
+    }
+
     // Notify user
     const io = req.app.get("io");
-    const userSocketId = await getActiveUserSocket(
-      req.app,
-      order.user?._id?.toString() || order.user?.toString(),
-    );
-    if (io && userSocketId) {
-      io.to(userSocketId).emit("orderCancelledByAgent", {
+    if (io && userId) {
+      io.to(getUserRoom(userId)).emit("orderCancelledByAgent", {
         orderId: order._id,
         status: order.orderStatus,
         message: "Your delivery agent cancelled. Reassigning a new agent...",

@@ -61,6 +61,47 @@ const productSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    avgShelfLifeDays: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+    pantryCategory: {
+      type: String,
+      enum: [
+        "dairy",
+        "produce",
+        "grains",
+        "snacks",
+        "beverages",
+        "condiments",
+        "personal_care",
+        "cleaning",
+        "frozen",
+        "other",
+      ],
+      default: "other",
+    },
+    isPerishable: {
+      type: Boolean,
+      default: false,
+    },
+    typicalReorderUnit: {
+      type: String,
+      default: "piece",
+      trim: true,
+    },
+    barcodeVariants: {
+      type: [String],
+      default: [],
+    },
+    sku: {
+      type: String,
+      default: null,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -86,6 +127,7 @@ productSchema.index({ name: "text", brand: "text", description: "text" });
 productSchema.index({ price: 1 });
 productSchema.index({ discount: 1 });
 productSchema.index({ createdAt: -1 });
+productSchema.index({ barcodeVariants: 1 });
 
 const ProductModel = mongoose.model("Product", productSchema);
 export default ProductModel;

@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    fcmToken: {
+      type: String,
+      default: "",
+    },
 
     // ! for email verification
     emailVerificationToken: {
@@ -47,6 +51,18 @@ const userSchema = new mongoose.Schema(
       type: String,
     },
     passwordVerificationTokenExpire: {
+      type: Date,
+    },
+
+    // ! for email change via OTP
+    pendingEmail: {
+      type: String,
+      lowercase: true,
+    },
+    emailChangeOtp: {
+      type: String,
+    },
+    emailChangeOtpExpire: {
       type: Date,
     },
   },

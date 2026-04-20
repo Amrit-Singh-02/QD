@@ -6,6 +6,35 @@ import CustomError from "../../utils/customError.util.js";
 import { generateToken } from "../../utils/jwt.util.js";
 import { sendEmail } from "../../utils/sendEmail.util.js";
 import crypto from "crypto";
+import { sendOTP, verifyOTP } from "../../utils/twilio.js";
+
+const normalizePhone = (input = "") => {
+  const raw = String(input).trim();
+  const digits = raw.replace(/\D/g, "");
+
+  if (!digits) {
+    return { dbPhone: "", e164: "" };
+  }
+
+  if (digits.length === 10) {
+    return { dbPhone: digits, e164: `+91${digits}` };
+  }
+
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return { dbPhone: digits.slice(2), e164: `+${digits}` };
+  }
+
+  if (raw.startsWith("+")) {
+    return { dbPhone: digits, e164: raw };
+  }
+
+  return { dbPhone: digits, e164: `+${digits}` };
+};
+
+const generateEmailOtp = () => `${Math.floor(100000 + Math.random() * 900000)}`;
+
+const hashOtp = (value = "") =>
+  crypto.createHash("sha256").update(String(value)).digest("hex");
 
 // ! ================ Register User ================================
 
@@ -139,10 +168,19 @@ export const logout = expressAsyncHandler(async (req, res, next) => {
 
 export const updateProfile = expressAsyncHandler(async (req, res, next) => {
   let id = req.myUser.id;
+  const hasPhone = Boolean(req.body.phone || req.body.contactNumber);
+  const hasEmail = Boolean(req.body.email);
+
+  if (hasPhone) {
+    return next(new CustomError(400, "Phone updates require OTP verification."));
+  }
+  if (hasEmail) {
+    return next(new CustomError(400, "Email updates require OTP verification."));
+  }
 
   const updatedUser = await userModel.findByIdAndUpdate(id, req.body, {
     new: true,
-    runvalidators: true,
+    runValidators: true,
   });
   if (!updatedUser) {
     return next(new CustomError(404, "User not found"));
@@ -244,3 +282,152 @@ export const currentUser = expressAsyncHandler(async (req, res, next) => {
   new ApiResponse(200, "Current User:", user).send(res);
 });
 // ! ----------------------------------------------------------------------------'
+
+// ! ====================== Phone OTP Update ===========================
+export const sendPhoneOtp = expressAsyncHandler(async (req, res, next) => {
+  const userId = req.myUser?.id;
+  const { phone } = req.body;
+  const { dbPhone, e164 } = normalizePhone(phone);
+
+  if (!dbPhone || !e164) {
+    return next(new CustomError(400, "Invalid phone number"));
+  }
+
+  if (String(req.myUser?.phone || "") === dbPhone) {
+    return next(new CustomError(400, "Phone number is unchanged."));
+  }
+
+  const existing = await userModel.findOne({
+    phone: dbPhone,
+    _id: { $ne: userId },
+  });
+  if (existing) {
+    return next(new CustomError(409, "Phone number already in use."));
+  }
+
+  await sendOTP(e164);
+  new ApiResponse(200, "OTP sent successfully").send(res);
+});
+
+export const verifyPhoneOtp = expressAsyncHandler(async (req, res, next) => {
+  const userId = req.myUser?.id;
+  const { phone, code } = req.body;
+  const { dbPhone, e164 } = normalizePhone(phone);
+
+  if (!dbPhone || !e164) {
+    return next(new CustomError(400, "Invalid phone number"));
+  }
+
+  const isValid = await verifyOTP(e164, code);
+  if (!isValid) {
+    return next(new CustomError(400, "Invalid OTP"));
+  }
+
+  const existing = await userModel.findOne({
+    phone: dbPhone,
+    _id: { $ne: userId },
+  });
+  if (existing) {
+    return next(new CustomError(409, "Phone number already in use."));
+  }
+
+  const updatedUser = await userModel.findByIdAndUpdate(
+    userId,
+    { phone: dbPhone },
+    { new: true, runValidators: true },
+  );
+
+  new ApiResponse(200, "Phone number updated successfully", updatedUser).send(res);
+});
+
+// ! ====================== Email OTP Update ===========================
+export const sendEmailOtp = expressAsyncHandler(async (req, res, next) => {
+  const userId = req.myUser?.id;
+  const email = String(req.body.email || "").trim().toLowerCase();
+
+  if (!email) {
+    return next(new CustomError(400, "Email is required"));
+  }
+
+  if (email === String(req.myUser?.email || "").toLowerCase()) {
+    return next(new CustomError(400, "Email is unchanged."));
+  }
+
+  const existing = await userModel.findOne({
+    email,
+    _id: { $ne: userId },
+  });
+  if (existing) {
+    return next(new CustomError(409, "Email already in use."));
+  }
+
+  const otp = generateEmailOtp();
+  const hashedOtp = hashOtp(otp);
+
+  await userModel.findByIdAndUpdate(userId, {
+    pendingEmail: email,
+    emailChangeOtp: hashedOtp,
+    emailChangeOtpExpire: Date.now() + 10 * 60 * 1000,
+  });
+
+  try {
+    await sendEmail(
+      email,
+      "Email Change OTP",
+      `<p>Your OTP for updating your email is <strong>${otp}</strong>. It expires in 10 minutes.</p>`,
+    );
+  } catch (err) {
+    console.error("Email OTP send failed:", err);
+    return next(new CustomError(502, "Failed to send email OTP"));
+  }
+
+  new ApiResponse(200, "OTP sent to email successfully").send(res);
+});
+
+export const verifyEmailOtp = expressAsyncHandler(async (req, res, next) => {
+  const userId = req.myUser?.id;
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const code = String(req.body.code || "").trim();
+
+  const user = await userModel.findById(userId);
+  if (!user) {
+    return next(new CustomError(404, "User not found"));
+  }
+
+  if (!user.pendingEmail || user.pendingEmail !== email) {
+    return next(new CustomError(400, "No pending email update for this address"));
+  }
+
+  if (!user.emailChangeOtp || !user.emailChangeOtpExpire) {
+    return next(new CustomError(400, "Email OTP not requested"));
+  }
+
+  if (user.emailChangeOtpExpire < Date.now()) {
+    return next(new CustomError(400, "OTP expired"));
+  }
+
+  const hashedOtp = hashOtp(code);
+  if (hashedOtp !== user.emailChangeOtp) {
+    return next(new CustomError(400, "Invalid OTP"));
+  }
+
+  const existing = await userModel.findOne({
+    email,
+    _id: { $ne: userId },
+  });
+  if (existing) {
+    return next(new CustomError(409, "Email already in use."));
+  }
+
+  user.email = email;
+  user.pendingEmail = undefined;
+  user.emailChangeOtp = undefined;
+  user.emailChangeOtpExpire = undefined;
+  user.isVerified = true;
+  user.emailVerificationToken = undefined;
+  user.emailVerificationTokenExpire = undefined;
+
+  await user.save();
+
+  new ApiResponse(200, "Email updated successfully", user).send(res);
+});

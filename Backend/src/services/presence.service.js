@@ -1,6 +1,8 @@
 const ACTIVE_AGENTS_KEY = "activeAgents";
 const ACTIVE_USERS_KEY = "activeUsers";
 
+export const getUserRoom = (userId) => `user:${userId}`;
+
 const getRedisClient = (app) => app.get("redis");
 
 const getMemoryStore = (app, key) => {

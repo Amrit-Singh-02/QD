@@ -9,6 +9,7 @@ import { BrowserRouter } from "react-router-dom";
 import { CartProvider } from "./context/CartContext.jsx";
 import { LocationProvider } from "./context/LocationContext.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
+import { PantryProvider } from "./context/PantryContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <BrowserRouter>
@@ -16,7 +17,9 @@ createRoot(document.getElementById("root")).render(
       <AuthProvider>
         <CartProvider>
           <LocationProvider>
-            <App />
+            <PantryProvider>
+              <App />
+            </PantryProvider>
           </LocationProvider>
         </CartProvider>
       </AuthProvider>

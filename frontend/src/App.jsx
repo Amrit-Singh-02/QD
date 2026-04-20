@@ -27,7 +27,15 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminCategories from './pages/AdminCategories';
 import AdminAgents from './pages/AdminAgents';
 import AdminAuditLogs from './pages/AdminAuditLogs';
+import PantryPage from './pages/PantryPage';
+import CookTonightPage from './pages/CookTonightPage';
+import ReorderPage from './pages/ReorderPage';
+import PantryOSPage from './pages/PantryOSPage';
+import PantrySection from './sections/pantry/PantrySection';
+import CookTonightSection from './sections/pantry/CookTonightSection';
+import ReorderSection from './sections/pantry/ReorderSection';
 import { useAuth } from './context/AuthContext';
+import ProtectedRoutes from './component/Auth/ProtectedRoutes';
 
 const DeliveryGate = ({ children }) => {
   const { user, authLoading } = useAuth();
@@ -72,6 +80,15 @@ function App() {
           <Route path="/orders" element={<MyOrders/>} />
           <Route path="/addresses" element={<MyAddresses/>} />
           <Route path="/help" element={<HelpDesk/>} />
+          <Route path="/pantry" element={<ProtectedRoutes><PantryPage/></ProtectedRoutes>} />
+          <Route path="/cook-tonight" element={<ProtectedRoutes><CookTonightPage/></ProtectedRoutes>} />
+          <Route path="/reorder" element={<ProtectedRoutes><ReorderPage/></ProtectedRoutes>} />
+          <Route path="/pantry-os" element={<ProtectedRoutes><PantryOSPage/></ProtectedRoutes>}>
+            <Route index element={<Navigate to="pantry" replace />} />
+            <Route path="pantry" element={<PantrySection/>} />
+            <Route path="cook" element={<CookTonightSection/>} />
+            <Route path="reorder" element={<ReorderSection/>} />
+          </Route>
           <Route path="/order-success" element={<OrderSuccess/>} />
           <Route path="/order/:id" element={<OrderDetails/>} />
 

@@ -25,6 +25,10 @@ import adminDashboardRoutes from "./src/routes/admin/dashboard.route.js";
 import adminAuditLogRoutes from "./src/routes/admin/auditLog.route.js";
 import otpRoutes from "./src/routes/otp.routes.js";
 import paymentRoutes from "./src/routes/user/payment.route.js";
+import pantryRoutes from "./src/routes/user/pantry.route.js";
+import recipeRoutes from "./src/routes/user/recipe.route.js";
+import reorderRoutes from "./src/routes/user/reorder.route.js";
+import notificationRoutes from "./src/routes/user/notification.route.js";
 
 const app = express();
 app.use(
@@ -58,9 +62,15 @@ app.use("/api/v1/admin/dashboard", adminDashboardRoutes);
 app.use("/api/v1/admin/audit-logs", adminAuditLogRoutes);
 app.use("/api/v1/user/review", reviewRoutes);
 app.use("/api/v1/user/help", helpTicketRoutes);
+app.use("/api/v1/user/notification", notificationRoutes);
 app.use("/api/v1/delivery", deliveryRoutes);
+app.use("/api/v1/pantry", pantryRoutes);
+app.use("/api/v1/recipes", recipeRoutes);
+app.use("/api/v1/reorder", reorderRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/v1/location", locationRoutes);
 
 app.use(errorMiddleware);
 export default app;
+
+

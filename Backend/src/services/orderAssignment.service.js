@@ -8,8 +8,9 @@ import {
 } from "../utils/orderStatus.util.js";
 import {
   getActiveAgentSocket,
-  getActiveUserSocket,
+  getUserRoom,
 } from "./presence.service.js";
+import { createNotification } from "./notification.service.js";
 
 /* ─── constants ─── */
 const ASSIGNMENT_TIMEOUT_MS = 30 * 1000;
@@ -286,9 +287,23 @@ const markNoAgentAvailable = async (order, app) => {
   order.orderStatus = ORDER_STATUSES.NO_AGENT_AVAILABLE;
   await order.save();
 
-  const userSocketId = await getActiveUserSocket(app, order.user?.toString());
-  if (io && userSocketId) {
-    io.to(userSocketId).emit("noAgentAvailable", { orderId: order._id });
+  try {
+    const userId = order.user?.toString?.() || order.user;
+    if (userId) {
+      await createNotification(
+        userId,
+        "order_no_agent",
+        "No delivery agent is available right now. We will try again shortly.",
+        app,
+      );
+    }
+  } catch (err) {
+    console.error("Failed to create notification (no agent):", err);
+  }
+
+  const userId = order.user?.toString?.() || order.user;
+  if (io && userId) {
+    io.to(getUserRoom(userId)).emit("noAgentAvailable", { orderId: order._id });
   }
   return null;
 };
@@ -347,9 +362,23 @@ export const acceptOrder = async (orderId, agentId, app) => {
   // release the agent lock
   await releaseAgentLock(agentId.toString(), app);
 
-  const userSocketId = await getActiveUserSocket(app, order.user?.toString());
-  if (io && userSocketId) {
-    io.to(userSocketId).emit("orderAccepted", {
+  try {
+    const userId = order.user?.toString?.() || order.user;
+    if (userId) {
+      await createNotification(
+        userId,
+        "order_accepted",
+        "Your order was accepted by a delivery agent.",
+        app,
+      );
+    }
+  } catch (err) {
+    console.error("Failed to create notification (order accepted):", err);
+  }
+
+  const userId = order.user?.toString?.() || order.user;
+  if (io && userId) {
+    io.to(getUserRoom(userId)).emit("orderAccepted", {
       orderId: order._id,
       agent: agent.toObject(),
     });

@@ -22,12 +22,14 @@ import { recordAuditLog } from "./src/services/auditLog.service.js";
 import { sendWebhook } from "./src/services/webhook.service.js";
 import {
   getActiveAgentSocket,
-  getActiveUserSocket,
+  getUserRoom,
   removeActiveAgent,
   removeActiveUser,
   setActiveAgent,
   setActiveUser,
 } from "./src/services/presence.service.js";
+import { initPantryJobs } from "./src/jobs/index.js";
+import { initFirebaseAdmin } from "./src/services/fcm.service.js";
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -471,13 +473,10 @@ const startInventoryLockReaper = (appRef) => {
             expiredAt: new Date().toISOString(),
           });
 
-          const userSocketId = await getActiveUserSocket(
-            appRef,
-            order.user?.toString(),
-          );
-          if (userSocketId) {
-            const io = appRef.get("io");
-            io?.to(userSocketId).emit("orderExpired", {
+          const userId = order.user?.toString?.() || order.user;
+          const io = appRef.get("io");
+          if (io && userId) {
+            io.to(getUserRoom(userId)).emit("orderExpired", {
               orderId: order._id,
               status: order.orderStatus,
             });
@@ -504,6 +503,7 @@ if (redis) {
 } else {
   startLocationFlushPoller(app);
 }
+initPantryJobs(app);
 startInventoryLockReaper(app);
 
 io.on("connection", (socket) => {
@@ -535,6 +535,7 @@ io.on("connection", (socket) => {
     if (!userId) return;
     await setActiveUser(app, userId, socket.id);
     socket.data.userId = userId;
+    socket.join(getUserRoom(userId));
   });
 
   socket.on("acceptOrder", async (orderId) => {
@@ -583,16 +584,13 @@ io.on("connection", (socket) => {
       ];
       if (!allowedStatuses.includes(order.orderStatus)) return;
 
-      const userSocketId = await getActiveUserSocket(
-        app,
-        order.user?.toString(),
-      );
-      if (userSocketId) {
+      const userId = order.user?.toString?.() || order.user;
+      if (userId) {
         const emitKey = `${orderId}:${effectiveAgentId}`;
         if (!shouldEmit(lastAgentEmitAt, emitKey, LOCATION_EMIT_THROTTLE_MS)) {
           return;
         }
-        io.to(userSocketId).emit("liveLocationUpdate", {
+        io.to(getUserRoom(userId)).emit("liveLocationUpdate", {
           orderId: order._id,
           agentId: effectiveAgentId,
           latitude,
@@ -707,12 +705,9 @@ io.on("connection", (socket) => {
       if (!order) return;
       if (String(order.assignedAgent || "") !== String(agentId)) return;
 
-      const userSocketId = await getActiveUserSocket(
-        app,
-        order.user?.toString(),
-      );
-      if (userSocketId) {
-        io.to(userSocketId).emit("userMessage", {
+      const userId = order.user?.toString?.() || order.user;
+      if (userId) {
+        io.to(getUserRoom(userId)).emit("userMessage", {
           orderId: order._id,
           message: trimmed,
           agentId,
@@ -735,12 +730,9 @@ io.on("connection", (socket) => {
       if (!order) return;
       if (String(order.assignedAgent || "") !== String(agentId)) return;
 
-      const userSocketId = await getActiveUserSocket(
-        app,
-        order.user?.toString(),
-      );
-      if (userSocketId) {
-        io.to(userSocketId).emit("routeUpdate", {
+      const userId = order.user?.toString?.() || order.user;
+      if (userId) {
+        io.to(getUserRoom(userId)).emit("routeUpdate", {
           orderId: order._id,
           route,
         });
@@ -819,6 +811,7 @@ io.on("connection", (socket) => {
 
 await connectDB()
   .then(() => {
+    initFirebaseAdmin();
     server.listen(process.env.PORT, (err) => {
       if (err) {
         console.log(err);

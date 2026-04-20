@@ -432,21 +432,7 @@ const ProductCard = ({ product, onAdd, cartQty, isNew }) => {
         />
       </div>
 
-      <div className="mt-2 flex items-center justify-between text-[10px] font-semibold text-blinkit-gray uppercase tracking-wider">
-        <div className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-blinkit-gray/60" />
-          8 mins
-        </div>
-        <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold ${liveMeta.stockTone}`}>
-          {liveMeta.stockLabel}
-        </span>
-      </div>
-      <div className="mt-1 flex items-center gap-1 text-[10px] text-blinkit-gray">
-        <span className="w-1.5 h-1.5 rounded-full bg-blinkit-green/70 badge-pulse" />
-        {liveMeta.freshnessLabel}
-      </div>
-
-      <h3 className="text-sm font-semibold text-blinkit-dark mt-1 line-clamp-2 min-h-[36px] leading-tight">
+      <h3 className="text-sm font-semibold text-blinkit-dark mt-2 line-clamp-2 min-h-[36px] leading-tight">
         {product?.name || 'Product'}
       </h3>
       <p className="text-[11px] text-blinkit-gray mt-0.5">{weightLabel}</p>
@@ -924,7 +910,7 @@ const Home = () => {
             to="/cart"
             className="view-cart-btn font-semibold text-sm px-4 py-2 rounded-xl hover:shadow-md transition-all"
           >
-            View Cart >
+            View Cart &gt;
           </Link>
         </div>
       )}

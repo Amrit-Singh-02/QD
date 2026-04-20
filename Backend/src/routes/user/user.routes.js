@@ -12,11 +12,16 @@ import {
   resetPasswordSchema,
   updatePasswordSchema,
   updateProfileSchema,
+  sendPhoneOtpSchema,
+  verifyPhoneOtpSchema,
+  sendEmailOtpSchema,
+  verifyEmailOtpSchema,
 } from "../../validators/user.validator.js";
 
 const router = Router();
 const authLimiter = rateLimit(rateLimitConfig.auth);
 const passwordLimiter = rateLimit(rateLimitConfig.password);
+const otpLimiter = rateLimit(rateLimitConfig.otp);
 
 router.post("/register", authLimiter, validate(registerSchema), user.registerUser);
 router.post("/login", authLimiter, validate(loginSchema), user.login);
@@ -26,6 +31,34 @@ router.patch(
   validate(updateProfileSchema),
   authenticate,
   user.updateProfile
+);
+router.post(
+  "/phone/send-otp",
+  otpLimiter,
+  validate(sendPhoneOtpSchema),
+  authenticate,
+  user.sendPhoneOtp
+);
+router.post(
+  "/phone/verify-otp",
+  otpLimiter,
+  validate(verifyPhoneOtpSchema),
+  authenticate,
+  user.verifyPhoneOtp
+);
+router.post(
+  "/email/send-otp",
+  otpLimiter,
+  validate(sendEmailOtpSchema),
+  authenticate,
+  user.sendEmailOtp
+);
+router.post(
+  "/email/verify-otp",
+  otpLimiter,
+  validate(verifyEmailOtpSchema),
+  authenticate,
+  user.verifyEmailOtp
 );
 router.patch(
   "/update-password",

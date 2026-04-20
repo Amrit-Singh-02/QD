@@ -35,6 +35,28 @@ export const authService = {
     return response.data;
   },
 
+  // ~ Profile phone OTP
+  sendProfilePhoneOtp: async (phone) => {
+    const response = await api.post("/user/phone/send-otp", { phone });
+    return response.data;
+  },
+
+  verifyProfilePhoneOtp: async (payload) => {
+    const response = await api.post("/user/phone/verify-otp", payload);
+    return response.data;
+  },
+
+  // ~ Profile email OTP
+  sendProfileEmailOtp: async (email) => {
+    const response = await api.post("/user/email/send-otp", { email });
+    return response.data;
+  },
+
+  verifyProfileEmailOtp: async (payload) => {
+    const response = await api.post("/user/email/verify-otp", payload);
+    return response.data;
+  },
+
   // ~ logout
   logout: async () => {
     const response = await api.post("/user/logout");

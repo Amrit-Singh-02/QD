@@ -11,8 +11,17 @@ const MyProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
-    phone: user?.phone || '',
   });
+  const [phoneDraft, setPhoneDraft] = useState(user?.phone || '');
+  const [emailDraft, setEmailDraft] = useState(user?.email || '');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneSending, setPhoneSending] = useState(false);
+  const [phoneVerifying, setPhoneVerifying] = useState(false);
+  const [emailOtp, setEmailOtp] = useState('');
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailVerifying, setEmailVerifying] = useState(false);
 
   const [passwordData, setPasswordData] = useState({
     password: '',
@@ -39,15 +48,134 @@ const MyProfile = () => {
     }
   }, [resendCountdown]);
 
+  useEffect(() => {
+    setFormData({ name: user?.name || '' });
+    setPhoneDraft(user?.phone || '');
+    setEmailDraft(user?.email || '');
+  }, [user?.name, user?.phone, user?.email]);
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     try {
-      await authService.updateProfile(formData);
+      await authService.updateProfile({ name: formData.name });
       toast.success('Profile updated successfully');
       checkAuth(); // Refresh user data
       setIsEditing(false);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update profile');
+    }
+  };
+
+  const resetOtpState = () => {
+    setPhoneOtp('');
+    setPhoneOtpSent(false);
+    setPhoneSending(false);
+    setPhoneVerifying(false);
+    setEmailOtp('');
+    setEmailOtpSent(false);
+    setEmailSending(false);
+    setEmailVerifying(false);
+  };
+
+  const handleToggleEdit = () => {
+    if (isEditing) {
+      setFormData({ name: user?.name || '' });
+      setPhoneDraft(user?.phone || '');
+      setEmailDraft(user?.email || '');
+      resetOtpState();
+    }
+    setIsEditing((prev) => !prev);
+  };
+
+  const handleSendPhoneOtp = async () => {
+    const phone = phoneDraft.trim();
+    if (!phone) {
+      toast.error('Mobile number is required');
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      toast.error('Enter a valid 10-digit mobile number starting with 6-9');
+      return;
+    }
+    if (phone === String(user?.phone || '')) {
+      toast.error('This phone number is already on your account');
+      return;
+    }
+    try {
+      setPhoneSending(true);
+      await authService.sendProfilePhoneOtp(phone);
+      setPhoneOtpSent(true);
+      toast.success('OTP sent to your phone');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to send OTP');
+    } finally {
+      setPhoneSending(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    const code = phoneOtp.trim();
+    if (!code) {
+      toast.error('Enter the OTP');
+      return;
+    }
+    try {
+      setPhoneVerifying(true);
+      await authService.verifyProfilePhoneOtp({ phone: phoneDraft.trim(), code });
+      toast.success('Phone number updated');
+      setPhoneOtp('');
+      setPhoneOtpSent(false);
+      checkAuth();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to verify OTP');
+    } finally {
+      setPhoneVerifying(false);
+    }
+  };
+
+  const handleSendEmailOtp = async () => {
+    const email = emailDraft.trim().toLowerCase();
+    if (!email) {
+      toast.error('Email is required');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (email === String(user?.email || '').toLowerCase()) {
+      toast.error('This email is already on your account');
+      return;
+    }
+    try {
+      setEmailSending(true);
+      await authService.sendProfileEmailOtp(email);
+      setEmailOtpSent(true);
+      toast.success('OTP sent to your email');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to send OTP');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    const code = emailOtp.trim();
+    if (!code) {
+      toast.error('Enter the OTP');
+      return;
+    }
+    try {
+      setEmailVerifying(true);
+      await authService.verifyProfileEmailOtp({ email: emailDraft.trim(), code });
+      toast.success('Email updated');
+      setEmailOtp('');
+      setEmailOtpSent(false);
+      checkAuth();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to verify OTP');
+    } finally {
+      setEmailVerifying(false);
     }
   };
 
@@ -226,7 +354,7 @@ const MyProfile = () => {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold text-blinkit-dark">Personal Information</h2>
               <button 
-                onClick={() => setIsEditing(!isEditing)}
+                onClick={handleToggleEdit}
                 className="text-blinkit-green text-sm font-semibold hover:underline"
               >
                 {isEditing ? 'Cancel' : 'Edit'}
@@ -245,13 +373,80 @@ const MyProfile = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs text-blinkit-gray mb-1">Email</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={emailDraft}
+                      onChange={(e) => setEmailDraft(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-blinkit-border rounded-lg text-sm focus:outline-none focus:border-blinkit-green"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendEmailOtp}
+                      disabled={emailSending}
+                      className="px-3 py-2 rounded-lg border border-blinkit-green text-blinkit-green text-xs font-semibold hover:bg-green-50 disabled:opacity-60"
+                    >
+                      {emailSending ? 'Sending...' : 'Send OTP'}
+                    </button>
+                  </div>
+                  {emailOtpSent && (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="text"
+                        value={emailOtp}
+                        onChange={(e) => setEmailOtp(e.target.value)}
+                        placeholder="Enter OTP"
+                        className="flex-1 px-3 py-2 border border-blinkit-border rounded-lg text-sm focus:outline-none focus:border-blinkit-green"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyEmailOtp}
+                        disabled={emailVerifying}
+                        className="px-3 py-2 rounded-lg bg-blinkit-green text-white text-xs font-semibold disabled:opacity-60"
+                      >
+                        {emailVerifying ? 'Verifying...' : 'Verify'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div>
                   <label className="block text-xs text-blinkit-gray mb-1">Phone Number</label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    className="w-full px-3 py-2 border border-blinkit-border rounded-lg text-sm focus:outline-none focus:border-blinkit-green"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="tel"
+                      value={phoneDraft}
+                      onChange={(e) => setPhoneDraft(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-blinkit-border rounded-lg text-sm focus:outline-none focus:border-blinkit-green"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendPhoneOtp}
+                      disabled={phoneSending}
+                      className="px-3 py-2 rounded-lg border border-blinkit-green text-blinkit-green text-xs font-semibold hover:bg-green-50 disabled:opacity-60"
+                    >
+                      {phoneSending ? 'Sending...' : 'Send OTP'}
+                    </button>
+                  </div>
+                  {phoneOtpSent && (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="text"
+                        value={phoneOtp}
+                        onChange={(e) => setPhoneOtp(e.target.value)}
+                        placeholder="Enter OTP"
+                        className="flex-1 px-3 py-2 border border-blinkit-border rounded-lg text-sm focus:outline-none focus:border-blinkit-green"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyPhoneOtp}
+                        disabled={phoneVerifying}
+                        className="px-3 py-2 rounded-lg bg-blinkit-green text-white text-xs font-semibold disabled:opacity-60"
+                      >
+                        {phoneVerifying ? 'Verifying...' : 'Verify'}
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <button 
                   type="submit"
