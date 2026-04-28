@@ -26,3 +26,11 @@ createRoot(document.getElementById("root")).render(
     </ThemeProvider>
   </BrowserRouter>,
 );
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/notification-sw.js").catch(() => {
+      // Non-fatal: app notifications still work without SW registration.
+    });
+  });
+}

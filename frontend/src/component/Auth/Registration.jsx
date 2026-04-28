@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
+import loginPanelVideo from "../../assets/QuickDROP.mp4";
 
 const Registration = () => {
   const { register, loading } = useAuth();
@@ -77,34 +78,21 @@ const Registration = () => {
   return (
     <div className="min-h-screen bg-blinkit-bg flex">
       {/* Left illustration panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blinkit-green via-emerald-600 to-green-700 relative overflow-hidden items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center p-12">
+        <video
+          className="absolute inset-0 w-full h-full object-cover"
+          src={loginPanelVideo}
+          autoPlay
+          muted
+          loop
+          playsInline
+        />
+        <div className="absolute inset-0 bg-[#40513B]/60" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-72 h-72 bg-white rounded-full blur-3xl" />
           <div className="absolute bottom-20 right-20 w-96 h-96 bg-blinkit-yellow rounded-full blur-3xl" />
         </div>
-        <div className="relative text-center text-white z-10 animate-fade-in-up">
-          <span className="text-[120px] block mb-6 select-none animate-pulse-soft">🛍️</span>
-          <h2 className="text-4xl font-black mb-4">Join QuickDROP!</h2>
-          <p className="text-white/80 text-lg max-w-sm mx-auto leading-relaxed">
-            Create your account and start shopping for groceries, fresh produce, and essentials right away.
-          </p>
-          <div className="flex gap-6 justify-center mt-8">
-            <div className="text-center">
-              <p className="text-3xl font-black text-blinkit-yellow">10 min</p>
-              <p className="text-white/60 text-xs mt-1">delivery</p>
-            </div>
-            <div className="w-px bg-white/20" />
-            <div className="text-center">
-              <p className="text-3xl font-black text-blinkit-yellow">5000+</p>
-              <p className="text-white/60 text-xs mt-1">products</p>
-            </div>
-            <div className="w-px bg-white/20" />
-            <div className="text-center">
-              <p className="text-3xl font-black text-blinkit-yellow">₹0</p>
-              <p className="text-white/60 text-xs mt-1">delivery fee</p>
-            </div>
-          </div>
-        </div>
+        {/* Intentionally no text content over video */}
       </div>
 
       {/* Right form panel */}

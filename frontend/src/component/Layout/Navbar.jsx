@@ -103,23 +103,36 @@ const Navbar = () => {
   }, [debouncedQuery]);
 
   const showSystemNotification = useCallback(
-    (notif) => {
+    async (notif) => {
       if (!notifSupported || notifPermission !== 'granted') return false;
       if (typeof window === 'undefined' || !('Notification' in window)) return false;
 
       const id = notif?._id || notif?.id;
       const body = notif?.message || 'You have a new notification.';
-      const notification = new Notification('QuickDROP', {
+      const options = {
         body,
         icon: '/favicon.ico',
         tag: id || undefined,
         renotify: false,
-      });
+        data: { url: '/?openNotifications=1' },
+      };
 
-      notification.onclick = () => {
-        if (typeof window !== 'undefined') {
-          window.focus();
+      // Prefer SW notifications; they surface better across tabs/platforms.
+      try {
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            await registration.showNotification('QuickDROP', options);
+            return true;
+          }
         }
+      } catch (_) {
+        // Fall back to direct Notification API.
+      }
+
+      const notification = new Notification('QuickDROP', options);
+      notification.onclick = () => {
+        window.focus();
         setShowNotifDropdown(true);
       };
 
@@ -129,13 +142,13 @@ const Navbar = () => {
   );
 
   const announceNotification = useCallback(
-    (notif) => {
+    async (notif) => {
       const message = notif?.message || 'You have a new notification.';
       const id = notif?._id || notif?.id;
-      const systemShown = showSystemNotification(notif);
-      if (!systemShown) {
-        toast(message, { id: id ? `notif-${id}` : undefined });
-      }
+      // Always show in-app toast.
+      toast(message, { id: id ? `notif-${id}` : undefined });
+      // Also try system notification.
+      await showSystemNotification(notif);
     },
     [showSystemNotification]
   );
@@ -165,7 +178,7 @@ const Navbar = () => {
             announce || (isInitialLoad && initialAnnounced < MAX_INITIAL_NOTIF_ANNOUNCE);
 
           if (shouldAnnounce) {
-            announceNotification(item);
+            void announceNotification(item);
             if (isInitialLoad) initialAnnounced += 1;
           }
         });
@@ -224,7 +237,7 @@ const Navbar = () => {
       const id = payload?._id || payload?.id;
       if (!id || notifiedIdsRef.current.has(id)) return;
       notifiedIdsRef.current.add(id);
-      announceNotification(payload);
+      void announceNotification(payload);
       setNotifications((prev) => {
         if (!Array.isArray(prev)) return [payload];
         const exists = prev.some((item) => (item?._id || item?.id) === id);
@@ -243,6 +256,22 @@ const Navbar = () => {
       }
     };
   }, [isAuthenticated, user?.id, user?._id, announceNotification]);
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (event?.data?.type === 'OPEN_NOTIFICATIONS') {
+        setShowNotifDropdown(true);
+      }
+    };
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handler);
+    }
+    return () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handler);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (showNotifDropdown && isAuthenticated) {

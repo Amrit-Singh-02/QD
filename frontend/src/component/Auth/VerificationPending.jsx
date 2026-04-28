@@ -39,10 +39,10 @@ const VerificationPending = () => {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 justify-center mb-8 group">
           <div className="w-10 h-10 bg-blinkit-green rounded-xl flex items-center justify-center shadow-md">
-            <span className="text-white font-black text-lg">B</span>
+            <span className="text-white font-black text-lg">Q</span>
           </div>
           <h1 className="text-2xl font-extrabold text-blinkit-dark">
-            blink<span className="text-blinkit-green">it</span>
+            Quick<span className="text-blinkit-green">DROP</span>
           </h1>
         </Link>
 

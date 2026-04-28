@@ -5,6 +5,7 @@ import ApiResponse from "../../utils/ApiResponse.util.js";
 import CustomError from "../../utils/customError.util.js";
 import { generateToken } from "../../utils/jwt.util.js";
 import { sendEmail } from "../../utils/sendEmail.util.js";
+import { verificationEmailTemplate, resetPasswordEmailTemplate, otpEmailTemplate } from "../../utils/emailTemplates.util.js";
 import crypto from "crypto";
 import { sendOTP, verifyOTP } from "../../utils/twilio.js";
 
@@ -40,30 +41,73 @@ const hashOtp = (value = "") =>
 
 export const registerUser = expressAsyncHandler(async (req, res, next) => {
   const { name, email, password, phone } = req.body;
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedPhone = String(phone || "").trim();
+
+  const existingByEmail = await userModel.findOne({ email: normalizedEmail });
+  if (existingByEmail) {
+    if (existingByEmail.isVerified) {
+      return next(new CustomError(409, "Email already registered. Please login."));
+    }
+
+    // Existing unverified user: refresh token and resend verification mail.
+    const emailVerificationToken = existingByEmail.generateEmailVerificationToken();
+    if (name) existingByEmail.name = name;
+    if (password) existingByEmail.password = password;
+    if (normalizedPhone) existingByEmail.phone = normalizedPhone;
+    await existingByEmail.save();
+
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${emailVerificationToken}`;
+    try {
+      await sendEmail(
+        normalizedEmail,
+        "Verify your QuickDROP account",
+        verificationEmailTemplate(verificationUrl),
+      );
+    } catch (err) {
+      console.error("Verification email resend failed:", err);
+      return next(new CustomError(502, "Failed to send verification email"));
+    }
+
+    return new ApiResponse(
+      200,
+      "Account exists but not verified. Verification link sent again.",
+    ).send(res);
+  }
+
+  const existingByPhone = await userModel.findOne({ phone: normalizedPhone });
+  if (existingByPhone) {
+    return next(new CustomError(409, "Phone already registered. Please login."));
+  }
+
   const newUser = await userModel.create({
     name,
-    email,
+    email: normalizedEmail,
     password,
-    phone,
+    phone: normalizedPhone,
   });
 
-  let emailVerificationToken = newUser.generateEmailVerificationToken();
+  const emailVerificationToken = newUser.generateEmailVerificationToken();
   await newUser.save();
-
   const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${emailVerificationToken}`;
 
   try {
     await sendEmail(
-      email,
-      "Email Verification",
-      `<h1> this is for verification</h1> <a href="${verificationUrl}">Click Here</a> <h3> ${emailVerificationToken} </h3>`,
+      normalizedEmail,
+      "Verify your QuickDROP account",
+      verificationEmailTemplate(verificationUrl),
     );
   } catch (err) {
     console.error("Verification email failed:", err);
+    // Roll back registration so user can retry cleanly.
+    await userModel.findByIdAndDelete(newUser._id);
     return next(new CustomError(502, "Failed to send verification email"));
   }
 
-  new ApiResponse(201, "User Registered Successfully. Verification link sent to your email.", newUser).send(res);
+  new ApiResponse(
+    201,
+    "User registered successfully. Verification link sent to your email.",
+  ).send(res);
 });
 
 // ! --------------------------------------------------------------
@@ -115,8 +159,8 @@ export const resendEmailVerificationLink = expressAsyncHandler(
     try {
       await sendEmail(
         email,
-        "Resend Email Verification",
-        `<h1> this is for verification</h1> <a href="${verificationUrl}">Click Here</a> <h3> ${emailVerificationToken} </h3>`,
+        "Verify your QuickDROP account",
+        verificationEmailTemplate(verificationUrl),
       );
     } catch (err) {
       console.error("Resend verification email failed:", err);
@@ -223,8 +267,8 @@ export const forgotPassword = expressAsyncHandler(async (req, res, next) => {
   try {
     await sendEmail(
       email,
-      "Reset Password",
-      `<h1> Password Reset</h1> <a href="${verificationUrl}">Click Here</a> <h3> ${passwordVerificationToken} </h3>`,
+      "Reset Your QuickDROP Password",
+      resetPasswordEmailTemplate(verificationUrl),
     );
   } catch (err) {
     console.error("Reset password email failed:", err);
@@ -373,8 +417,8 @@ export const sendEmailOtp = expressAsyncHandler(async (req, res, next) => {
   try {
     await sendEmail(
       email,
-      "Email Change OTP",
-      `<p>Your OTP for updating your email is <strong>${otp}</strong>. It expires in 10 minutes.</p>`,
+      "QuickDROP Email Change OTP",
+      otpEmailTemplate(otp),
     );
   } catch (err) {
     console.error("Email OTP send failed:", err);
